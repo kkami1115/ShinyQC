@@ -52,14 +52,15 @@ shinyServer(function(input, output, session) {
     dir.create( paste0(result_dir, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE  )
     
     # Fastqファイルのパスを取得
-    fastq_paths <- list.files(path = fastq_dir_parsed, pattern = ".fastq.gz$", full.names = TRUE, recursive = TRUE)
+    fastq_paths <- list.files(path = fastq_dir_parsed, pattern = "\\.fastq\\.gz$", full.names = TRUE, recursive = TRUE)
     # ファイルペアを生成
-    file_pairs <- createFilePairsList(fastq_paths, pattern = file_pattern)
+    file_pairs_list <- createFilePairsList(fastq_paths, pattern = input$file_pattern)
     
     # 結果を格納するリスト
     results <- list()
     
-    results <- future_imap(file_pairs, runRfastp(.x)) 
+    # Rfastpの実行
+    results <- future_map(file_pairs_list, ~runRfastp(.x)) 
     result_list <- extractValues(results)
     shinyjs::enable()
   })

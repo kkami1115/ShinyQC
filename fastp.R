@@ -5,9 +5,9 @@ library(Rfastp)
 
 # functions
 createFilePairsList <- function(paths, pattern) {
-  common_parts <- gsub(paste0(pattern,".fastq.gz"), "", paths) %>% basename()
+  common_parts <- gsub(paste0(pattern,"\\.fastq\\.gz"), "", paths) %>% basename()
   unique_common_parts <- unique(common_parts)
-  
+  file_pairs_list <- list()
   for(common_part in unique_common_parts){
     matched_files <- grep(common_part, paths, value = TRUE)
     if(length(matched_files) == 2 )　{
@@ -19,6 +19,7 @@ createFilePairsList <- function(paths, pattern) {
   }
   return(file_pairs_list)
 }
+
 extract_summary_parts <- function(youso) {
 
   # 'before_filtering' と 'after_filtering' 部分を抽出し、データフレームに変換
@@ -46,7 +47,7 @@ extract_whatever_filtering <- function(youso){
 runRfastp <- function(file_pair) {
     rfastp_result <- Rfastp::rfastp(read1 = file_pair$file1, 
                                     read2 = file_pair$file2, 
-                                    outputFastq = paste0(result_dir, "/fastp_dual/trimmed_", file_pair$common_parts)
+                                    outputFastq = paste0(result_dir, "/fastp_dual/trimmed_", file_pair$common_part)
     )
   return(rfastp_result)
 }

@@ -13,21 +13,21 @@ fluidPage(
   tabsetPanel(id="tabs",
     tabPanel("Fastp execution",
              # fastqフォルダ選択用ボタン
-             shinyDirButton("fastq_dir", "Fastq Directory", "Fastqファイルが存在するフォルダを選択"),
+             shinyDirButton("fastq_dir", "Fastq Directory", "Select fastq directory"),
              verbatimTextOutput("fastq_dir"),
-             shinyDirButton("result_dir", "Result Directory", "結果を保存するフォルダを選択"),
+             shinyDirButton("result_dir", "Result Directory", "Select result directory"),
              verbatimTextOutput("result_dir"),
              textInput("file_pattern", "File Pattern", value = "_[12]" ),
              actionButton("runButton", "Run Rfastp as paired")
     ),
     tabPanel("Overview",
-             selectInput("overview_item", "アイテムを選択", choices = c("total_reads", "total_bases", "q20_bases", "q30_bases", "q20_rate", "q30_rate", "read1_mean_length", "read2_mean_length", "gc_content") ),
+             selectInput("overview_item", "Select item", choices = c("total_reads", "total_bases", "q20_bases", "q30_bases", "q20_rate", "q30_rate", "read1_mean_length", "read2_mean_length", "gc_content") ),
              plotOutput("all_samples_summary")
     ),
     tabPanel("Visualize per sample", 
              sidebarLayout(
                sidebarPanel(
-                 selectInput("selected_sample", "サンプルを選択:", choices = names(summary))
+                 selectInput("selected_sample", "Select sample:", choices = names(summary))
                ),
                mainPanel(
                  tabsetPanel(
