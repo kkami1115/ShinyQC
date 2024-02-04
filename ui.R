@@ -27,7 +27,7 @@ fluidPage(
     tabPanel("Visualize per sample", 
              sidebarLayout(
                sidebarPanel(
-                 selectInput("selected_sample", "Select sample:", choices = names(summary))
+                 selectInput("selected_sample", "Select sample:", choices = NULL)
                ),
                mainPanel(
                  tabsetPanel(

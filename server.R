@@ -43,116 +43,145 @@ shinyServer(function(input, output, session) {
   
   ################## Rfastp実行系 ############################  
   # 
+  result_values <- reactiveValues(result_list = NULL)
   observeEvent(input$runButton, {
     shinyjs::disable("tabs")
     fastq_dir_parsed <- parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- parseDirPath(volumes, input$result_dir)
     
     # リザルトディレクトリを作成
-    dir.create( paste0(result_dir, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE  )
+    dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE  )
     
     # Fastqファイルのパスを取得
     fastq_paths <- list.files(path = fastq_dir_parsed, pattern = "\\.fastq\\.gz$", full.names = TRUE, recursive = TRUE)
     # ファイルペアを生成
     file_pairs_list <- createFilePairsList(fastq_paths, pattern = input$file_pattern)
     
+    # `selectInput`の選択肢を動的に更新
+    observe({
+      req(file_pairs_list) # `result_summary`がNULLでないことを確認
+      updateSelectInput(session, "selected_sample",
+                        choices = names(file_pairs_list))
+    })
+    
     # 結果を格納するリスト
     results <- list()
-    
     # Rfastpの実行
-    results <- future_map(file_pairs_list, ~runRfastp(.x)) 
+    results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1, globals=TRUE) 
     result_list <- extractValues(results)
-    shinyjs::enable()
+    result_values$result_list <- result_list
+    shinyjs::enable("tabs")
   })
   
-  
-  
   ################# Overview以降可視化部分 #################
-  summary= result_list[[1]]
-  filtering_result = result_list[[2]]
-  duplication = result_list[[3]] 
-  insert_size = result_list[[4]]
-  adapter_cutting = result_list[[5]]
-  read1_before_filtering = result_list[[6]]
-  read2_before_filtering = result_list[[7]]
-  read1_after_filtering = result_list[[8]]
-  read2_after_filtering = result_list[[9]]
+  result_summary= reactive({result_values$result_list[[1]]})
+  filtering_result = reactive({result_values$result_list[[2]]})
+  duplication = reactive({result_values$result_list[[3]] })
+  insert_size = reactive({result_values$result_list[[4]]})
+  adapter_cutting = reactive({result_values$result_list[[5]]})
+  read1_before_filtering = reactive({result_values$result_list[[6]]})
+  read2_before_filtering = reactive({result_values$result_list[[7]]})
+  read1_after_filtering = reactive({result_values$result_list[[8]]})
+  read2_after_filtering = reactive({result_values$result_list[[9]]})
   
   
   
   output$all_samples_summary <- renderPlot({
-    tmp = lapply(names(summary), function(sample_name) {
-      df <- summary[[sample_name]]
+    summary_data <- result_summary()
+    
+    # 取得したデータを使って条件を確認
+    # req(summary_data)
+
+    tmp = lapply(names(summary_data), function(sample_name) {
+      df <- summary_data[[sample_name]]
       df <- df[df$item == input$overview_item, ]
       df$sample <- sample_name
       return(df)
     }) %>% dplyr::bind_rows() %>%
       pivot_longer(cols = c("before_filtering", "after_filtering"))
     tmp$name =  factor(tmp$name, levels = c("before_filtering", "after_filtering"))
-    
-    ggplot(tmp, aes(x=sample, y=value, fill=name)) + 
+
+    ggplot(tmp, aes(x=sample, y=value, fill=name)) +
       geom_bar(stat = "identity", position = position_dodge()) +
-      scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red")) 
+      scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red"))
   })
   
+  
+  
   output$summary <- renderTable({
-    summary[[input$selected_sample]]
+    summary_data <- result_summary()
+    # req(!is.null(summary_data), nrow(summary_data) > 0)
+    summary_data[[input$selected_sample]]
   })
+  
   output$filtering_result_table <- renderTable({
-    filtering_result[[input$selected_sample]]
+    filtering_data <- filtering_result()
+    # req(!is.null(filtering_data), nrow(filtering_data) > 0)
+    filtering_data[[input$selected_sample]]
   })
   
   
   # duplicate関連の表示
   output$duplication_rate <- renderText({
-    rate <- duplication[[input$selected_sample]]$rate
+
+    rate <- duplication()[[input$selected_sample]]$rate
     paste("duplicate率:", rate)
   })
   output$duplication_histogram <- renderPlot({
-    histogram_data <- duplication[[input$selected_sample]]$histogram
+
+    histogram_data <- duplication()[[input$selected_sample]]$histogram
     barplot(histogram_data, main="Histogram of Duplication", xlab="Duplication", ylab="Frequency")
   })
   output$duplication_mean_gc <- renderPlot({
-    mean_gc_data <- duplication[[input$selected_sample]]$mean_gc
+
+    mean_gc_data <- duplication()[[input$selected_sample]]$mean_gc
     plot(mean_gc_data, type='o', col='blue', main="Mean GC Content", xlab="Position", ylab="Mean GC")
   })
   
   
   # insert size関連の表示
   output$insert_size_peak <- renderText({
-    peak <- insert_size[[input$selected_sample]]$peak
+
+    peak <- insert_size()[[input$selected_sample]]$peak
     paste("insert size peak:", peak)
   })
   output$insert_size_unknown <- renderText({
-    unknown <- insert_size[[input$selected_sample]]$unknown
+
+    unknown <- insert_size()[[input$selected_sample]]$unknown
     paste("insert size unknown:", unknown)
   })
   output$insert_size_histogram <- renderPlot({
-    insert_size_histogram <- insert_size[[input$selected_sample]]$histogram
+
+    insert_size_histogram <- insert_size()[[input$selected_sample]]$histogram
     plot(insert_size_histogram, type='o', col='blue', main="Insert size", xlab="Position", ylab="value")
   })
   
   
   # adapter cutting関連の表示
   output$adapter_cutting <- renderTable({
-    adapter_cutting[[input$selected_sample]] 
+
+    adapter_cutting()[[input$selected_sample]] 
   })
   
   
   # read1 before filtering関連の表示
   output$read1_before_filtering_main <- renderTable({
-    read1_before_filtering[[input$selected_sample]]$main
+
+    read1_before_filtering()[[input$selected_sample]]$main
   })
   output$read1_before_filtering_qualitycurves <- renderPlot({
-    tmp <- read1_before_filtering[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read1_before_filtering_contentcurves <- renderPlot({
-    tmp <- read1_before_filtering[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read1_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read1_before_filtering_kmer <- renderPlot({
-    tmp <- read1_before_filtering[[input$selected_sample]]$kmer_count
+
+    tmp <- read1_before_filtering()[[input$selected_sample]]$kmer_count
     tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
@@ -163,18 +192,22 @@ shinyServer(function(input, output, session) {
   
   # read1 after filtering関連の表示
   output$read1_after_filtering_main <- renderTable({
-    read1_after_filtering[[input$selected_sample]]$main
+
+    read1_after_filtering()[[input$selected_sample]]$main
   })
   output$read1_after_filtering_qualitycurves <- renderPlot({
-    tmp <- read1_after_filtering[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read1_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read1_after_filtering_contentcurves <- renderPlot({
-    tmp <- read1_after_filtering[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read1_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read1_after_filtering_kmer <- renderPlot({
-    tmp <- read1_after_filtering[[input$selected_sample]]$kmer_count
+
+    tmp <- read1_after_filtering()[[input$selected_sample]]$kmer_count
     tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
@@ -185,18 +218,22 @@ shinyServer(function(input, output, session) {
   
   # read2 before filtering関連の表示
   output$read2_before_filtering_main <- renderTable({
-    read2_before_filtering[[input$selected_sample]]$main
+
+    read2_before_filtering()[[input$selected_sample]]$main
   })
   output$read2_before_filtering_qualitycurves <- renderPlot({
-    tmp <- read2_before_filtering[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read2_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read2_before_filtering_contentcurves <- renderPlot({
-    tmp <- read2_before_filtering[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read2_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read2_before_filtering_kmer <- renderPlot({
-    tmp <- read2_before_filtering[[input$selected_sample]]$kmer_count
+
+    tmp <- read2_before_filtering()[[input$selected_sample]]$kmer_count
     tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
@@ -207,18 +244,22 @@ shinyServer(function(input, output, session) {
   
   # read2 after filtering関連の表示
   output$read2_after_filtering_main <- renderTable({
-    read2_after_filtering[[input$selected_sample]]$main
+
+    read2_after_filtering()[[input$selected_sample]]$main
   })
   output$read2_after_filtering_qualitycurves <- renderPlot({
-    tmp <- read2_after_filtering[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read2_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read2_after_filtering_contentcurves <- renderPlot({
-    tmp <- read2_after_filtering[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
+
+    tmp <- read2_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
     ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
   })
   output$read2_after_filtering_kmer <- renderPlot({
-    tmp <- read2_after_filtering[[input$selected_sample]]$kmer_count
+
+    tmp <- read2_after_filtering()[[input$selected_sample]]$kmer_count
     tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
