@@ -53,3 +53,6 @@ renv/*
 
 # Rstudio Project
 *.Rproj
+
+# I'm a Mac.
+.DS_Store
