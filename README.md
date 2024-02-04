@@ -1,5 +1,5 @@
 # ShinyQC
-指定したディレクトリ内のfastqをRfastpを使用してpairedで実行するGUIです。
+指定したディレクトリ内のfastqファイルを自動でペアにして、Rfastpをpaired-endで実行するGUIです。
 
 # 使い方
 `fastq_dir` ... fastqが存在するディレクトリ。
