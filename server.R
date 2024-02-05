@@ -67,7 +67,7 @@ shinyServer(function(input, output, session) {
     # 結果を格納するリスト
     results <- list()
     # Rfastpの実行
-    results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1, globals=TRUE) 
+    results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE) 
     result_list <- extractValues(results)
     result_values$result_list <- result_list
     shinyjs::enable("tabs")
