@@ -70,7 +70,16 @@ shinyServer(function(input, output, session) {
     results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE) 
     result_list <- extractValues(results)
     result_values$result_list <- result_list
+    # タブを有効化
     shinyjs::enable("tabs")
+    # 処理完了後の通知
+    showModal(modalDialog(
+      title = "Complete",
+      "Rfastp processing is complete.",
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+    
   })
   
   ################# Overview以降可視化部分 #################

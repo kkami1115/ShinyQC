@@ -6,6 +6,7 @@ if (require(bslib)) {
   theme <- NULL
 }
 
+useShinyjs()
 
 fluidPage(
   
