@@ -46,6 +46,7 @@ shinyServer(function(input, output, session) {
   result_values <- reactiveValues(result_list = NULL)
   observeEvent(input$runButton, {
     shinyjs::disable("tabs")
+    # showNotification("Processing has started...", type = "message", duration = 5) # 5秒間表示
     fastq_dir_parsed <- parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- parseDirPath(volumes, input$result_dir)
     
@@ -63,6 +64,12 @@ shinyServer(function(input, output, session) {
       updateSelectInput(session, "selected_sample",
                         choices = names(file_pairs_list))
     })
+    
+    showModal(modalDialog(
+      title = "Processing",
+      "Please wait...",
+      footer = NULL
+    ))
     
     # 結果を格納するリスト
     results <- list()
