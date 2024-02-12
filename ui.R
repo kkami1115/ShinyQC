@@ -23,7 +23,7 @@ fluidPage(
     ),
     tabPanel("Overview",
              selectInput("overview_item", "Select item", choices = c("total_reads", "total_bases", "q20_bases", "q30_bases", "q20_rate", "q30_rate", "read1_mean_length", "read2_mean_length", "gc_content") ),
-             plotOutput("all_samples_summary")
+             plotlyOutput("all_samples_summary")
     ),
     tabPanel("Visualize per sample", 
              sidebarLayout(
@@ -36,13 +36,13 @@ fluidPage(
                    tabPanel("Filtering Results", tableOutput("filtering_result_table")),
                    tabPanel("Duplicate Rate",
                             verbatimTextOutput("duplication_rate"),
-                            plotOutput("duplication_histogram"),
-                            plotOutput("duplication_mean_gc")
+                            plotlyOutput("duplication_histogram"),
+                            plotlyOutput("duplication_mean_gc")
                    ),
                    tabPanel("Insert Length",
                             verbatimTextOutput("insert_size_peak"),
                             verbatimTextOutput("insert_size_unknown"),
-                            plotOutput("insert_size_histogram")
+                            plotlyOutput("insert_size_histogram")
                    ),
                    tabPanel("Adapter cutting",
                             tableOutput("adapter_cutting")        
@@ -50,30 +50,30 @@ fluidPage(
                    tabPanel("Read1 Before Filtering",
                             # read1 before filtering関連の表示
                             tableOutput("read1_before_filtering_main"),
-                            plotOutput("read1_before_filtering_qualitycurves"),
-                            plotOutput("read1_before_filtering_contentcurves"),
-                            plotOutput("read1_before_filtering_kmer")
+                            plotlyOutput("read1_before_filtering_qualitycurves"),
+                            plotlyOutput("read1_before_filtering_contentcurves"),
+                            plotlyOutput("read1_before_filtering_kmer")
                    ),
                    tabPanel("Read1 After Filtering",
                             # read1 after filtering関連の表示
                             tableOutput("read1_after_filtering_main"),
-                            plotOutput("read1_after_filtering_qualitycurves"),
-                            plotOutput("read1_after_filtering_contentcurves"),
-                            plotOutput("read1_after_filtering_kmer")
+                            plotlyOutput("read1_after_filtering_qualitycurves"),
+                            plotlyOutput("read1_after_filtering_contentcurves"),
+                            plotlyOutput("read1_after_filtering_kmer")
                    ),
                    tabPanel("Read2 Before Filtering",
                             # read2 before filtering関連の表示
                             tableOutput("read2_before_filtering_main"),
-                            plotOutput("read2_before_filtering_qualitycurves"),
-                            plotOutput("read2_before_filtering_contentcurves"),
-                            plotOutput("read2_before_filtering_kmer")
+                            plotlyOutput("read2_before_filtering_qualitycurves"),
+                            plotlyOutput("read2_before_filtering_contentcurves"),
+                            plotlyOutput("read2_before_filtering_kmer")
                    ),
                    tabPanel("Read2 After Filtering",
                             # read2 after filtering関連の表示
                             tableOutput("read2_after_filtering_main"),
-                            plotOutput("read2_after_filtering_qualitycurves"),
-                            plotOutput("read2_after_filtering_contentcurves"),
-                            plotOutput("read2_after_filtering_kmer")
+                            plotlyOutput("read2_after_filtering_qualitycurves"),
+                            plotlyOutput("read2_after_filtering_contentcurves"),
+                            plotlyOutput("read2_after_filtering_kmer")
                    )
                  )
                )

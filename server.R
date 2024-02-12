@@ -102,7 +102,7 @@ shinyServer(function(input, output, session) {
   
   
   
-  output$all_samples_summary <- renderPlot({
+  output$all_samples_summary <- renderPlotly({
     summary_data <- result_summary()
     
     # 取得したデータを使って条件を確認
@@ -117,9 +117,10 @@ shinyServer(function(input, output, session) {
       pivot_longer(cols = c("before_filtering", "after_filtering"))
     tmp$name =  factor(tmp$name, levels = c("before_filtering", "after_filtering"))
     
-    ggplot(tmp, aes(x=sample, y=value, fill=name)) +
+    p <- ggplot(tmp, aes(x=sample, y=value, fill=name)) +
       geom_bar(stat = "identity", position = position_dodge()) +
       scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red")) 
+    p %>% plotly::ggplotly()
   })
   
   
@@ -142,22 +143,23 @@ shinyServer(function(input, output, session) {
     rate <- duplication()[[input$selected_sample]]$rate
     paste("duplicate率:", rate)
   })
-  output$duplication_histogram <- renderPlot({
+  output$duplication_histogram <- renderPlotly({
     histogram_data <- duplication()[[input$selected_sample]]$histogram
     # barplot(histogram_data, xlab="Duplication Level", ylab="Read percent (%)")
-    histogram_data %>% 
+    p <- histogram_data %>% 
       as.data.frame() %>% 
       rowid_to_column() %>% 
       rename(c("x"="rowid","y"=".")) %>% 
       ggplot(aes(x=x,y=y, group=x)) + 
       geom_bar(stat = "identity") + 
       xlab("Duplication Level") +
-      ylab("Read Count (raw)")
+      ylab("Read Count (raw)") 
+    p %>% ggplotly()
   })
-  output$duplication_mean_gc <- renderPlot({
+  output$duplication_mean_gc <- renderPlotly({
     mean_gc_data <- duplication()[[input$selected_sample]]$mean_gc
     # plot(mean_gc_data, type='o', col='blue', main="Mean GC Content", xlab="Position", ylab="Mean GC")
-    mean_gc_data %>% 
+    p <- mean_gc_data %>% 
       as.data.frame() %>% 
       rowid_to_column() %>% 
       rename(c("x"="rowid","y"=".")) %>% 
@@ -165,6 +167,7 @@ shinyServer(function(input, output, session) {
       geom_line() + 
       xlab("Duplication Level") +
       ylab("Mean GC Ratio (%)")
+    p %>% ggplotly()
   })
   
   
@@ -177,14 +180,15 @@ shinyServer(function(input, output, session) {
     unknown <- insert_size()[[input$selected_sample]]$unknown
     paste("insert size unknown:", unknown)
   })
-  output$insert_size_histogram <- renderPlot({
+  output$insert_size_histogram <- renderPlotly({
     insert_size_histogram <- insert_size()[[input$selected_sample]]$histogram
     # plot(insert_size_histogram, type='o', col='blue', main="Insert size", xlab="Position", ylab="value")
-    insert_size_histogram %>% 
+    p <- insert_size_histogram %>% 
       as.data.frame() %>% 
       rowid_to_column() %>% 
       rename(c("x"="rowid","y"=".")) %>% 
       ggplot(aes(x=x,y=y, group=x)) + geom_bar(stat = "identity")
+    p %>% plotly::ggplotly()
   })
   
   
@@ -198,87 +202,99 @@ shinyServer(function(input, output, session) {
   output$read1_before_filtering_main <- renderTable({
     read1_before_filtering()[[input$selected_sample]]$main
   })
-  output$read1_before_filtering_qualitycurves <- renderPlot({
+  output$read1_before_filtering_qualitycurves <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read1_before_filtering_contentcurves <- renderPlot({
+  output$read1_before_filtering_contentcurves <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read1_before_filtering_kmer <- renderPlot({
+  output$read1_before_filtering_kmer <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$kmer_count
-    tmp %>%  as.data.frame() %>%
+    p <- tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
       mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       geom_tile() 
+    p %>% plotly::ggplotly()
   })
   
   # read1 after filtering関連の表示
   output$read1_after_filtering_main <- renderTable({
     read1_after_filtering()[[input$selected_sample]]$main
   })
-  output$read1_after_filtering_qualitycurves <- renderPlot({
+  output$read1_after_filtering_qualitycurves <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read1_after_filtering_contentcurves <- renderPlot({
+  output$read1_after_filtering_contentcurves <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read1_after_filtering_kmer <- renderPlot({
+  output$read1_after_filtering_kmer <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$kmer_count
-    tmp %>%  as.data.frame() %>%
+    p <- tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
       mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       geom_tile() 
+    p %>% plotly::ggplotly()
   })
   
   # read2 before filtering関連の表示
   output$read2_before_filtering_main <- renderTable({
     read2_before_filtering()[[input$selected_sample]]$main
   })
-  output$read2_before_filtering_qualitycurves <- renderPlot({
+  output$read2_before_filtering_qualitycurves <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read2_before_filtering_contentcurves <- renderPlot({
+  output$read2_before_filtering_contentcurves <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read2_before_filtering_kmer <- renderPlot({
+  output$read2_before_filtering_kmer <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$kmer_count
-    tmp %>%  as.data.frame() %>%
+    p <- tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
       mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       geom_tile() 
+    p %>% plotly::ggplotly()
   })
   
   # read2 after filtering関連の表示
   output$read2_after_filtering_main <- renderTable({
     read2_after_filtering()[[input$selected_sample]]$main
   })
-  output$read2_after_filtering_qualitycurves <- renderPlot({
+  output$read2_after_filtering_qualitycurves <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read2_after_filtering_contentcurves <- renderPlot({
+  output$read2_after_filtering_contentcurves <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p %>% plotly::ggplotly()
   })
-  output$read2_after_filtering_kmer <- renderPlot({
+  output$read2_after_filtering_kmer <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$kmer_count
-    tmp %>%  as.data.frame() %>%
+    p <- tmp %>%  as.data.frame() %>%
       rownames_to_column() %>% 
       mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
       mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       geom_tile() 
+    p %>% plotly::ggplotly()
   })
 })
