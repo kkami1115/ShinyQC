@@ -1,5 +1,5 @@
 
-pacman::p_load(shiny, shinyFiles, shinyjs)
+pacman::p_load(shiny, shinyFiles, shinyjs, plotly)
 if (require(bslib)) {
   theme <- bslib::bs_theme(version = 4)
 } else {
@@ -19,7 +19,10 @@ fluidPage(
              shinyDirButton("result_dir", "Result Directory", "Select result directory"),
              verbatimTextOutput("result_dir"),
              textInput("file_pattern", "File Pattern", value = "_[12]" ),
-             actionButton("runButton", "Run Rfastp as paired")
+             actionButton("runButton", "Run Rfastp as paired") 
+             #,
+             # ログ表示用領域
+             # uiOutput("dynamicSizeLogOutput")
     ),
     tabPanel("Overview",
              selectInput("overview_item", "Select item", choices = c("total_reads", "total_bases", "q20_bases", "q30_bases", "q20_rate", "q30_rate", "read1_mean_length", "read2_mean_length", "gc_content") ),
