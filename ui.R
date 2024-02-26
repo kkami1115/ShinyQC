@@ -1,5 +1,6 @@
 
 pacman::p_load(shiny, shinyFiles, shinyjs, plotly)
+source("fastp.R")
 if (require(bslib)) {
   theme <- bslib::bs_theme(version = 4)
 } else {
