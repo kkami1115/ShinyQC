@@ -12,5 +12,6 @@
 
 
 # ToDo
-- `furrr`の非同期処理で立てているプロセスの進行状況をプログレスバーとして表示する
+- per sampleの可視化を実際のhtmlと合わせる（今は微妙に仕様が違う）
+- duplicate rateをOverviewで確認できるようにする
 
