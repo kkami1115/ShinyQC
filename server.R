@@ -1,9 +1,11 @@
 
-pacman::p_load(shiny,shinyjs,fs, future,furrr)
+pacman::p_load(shiny,shinyjs,fs, future,furrr, plotly, progressr)
 source("fastp.R")
 
 # 非同期処理の計画を設定
 plan(multisession)  # 複数のプロセスを使用
+# プログレスバーのハンドラーを設定
+handlers(handler_shiny)
 
 
 shinyServer(function(input, output, session) {
@@ -42,11 +44,14 @@ shinyServer(function(input, output, session) {
   
   
   ################## Rfastp実行系 ############################  
-  # 
+  # resultの値を動的に管理
   result_values <- reactiveValues(result_list = NULL)
+  # ログファイルのパスを動的に管理
+  # log_paths <- reactiveValues(files= NULL)
+  
   observeEvent(input$runButton, {
     shinyjs::disable("tabs")
-    # showNotification("Processing has started...", type = "message", duration = 5) # 5秒間表示
+    #showNotification("Processing has started...", type = "message", duration = 5) # 5秒間表示
     fastq_dir_parsed <- parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- parseDirPath(volumes, input$result_dir)
     
@@ -65,20 +70,45 @@ shinyServer(function(input, output, session) {
                         choices = names(file_pairs_list))
     })
     
+    # 処理中のポップアップ
     showModal(modalDialog(
-      title = "Processing",
-      "Please wait...",
-      footer = NULL
+     title = "Processing",
+     "Please wait...",
+     footer = NULL
     ))
+    
+    # ログファイルのパス（動的に出力）
+    #log_file_names <- paste0(names(file_pairs_list), ".log")
+    #log_file_paths <- paste0(result_dir_parsed, "/fastp_dual/log/", log_file_names)
+    #log_paths$files <- data.frame(name = names(file_pairs_list), path = log_file_paths)
     
     # 結果を格納するリスト
     results <- list()
-    # Rfastpの実行
-    results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE) 
+    
+    # runRfastpの実行用関数
+    rfastp_exec <- function(p, x){
+      future_map(x, ~{
+        p(.x$common_part)
+        runRfastp(result_dir_parsed, .x)
+        },
+        seed = 1L, globals = TRUE)
+    }
+
+  　# 実行部分
+    withProgressShiny(message = "Now calculating...",
+      {
+       p <- progressor(along = names(file_pairs_list))
+       results <- rfastp_exec(p, file_pairs_list)
+    }
+    )
+    
+    # results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE ) 
     result_list <- extractValues(results)
     result_values$result_list <- result_list
+    
     # タブを有効化
     shinyjs::enable("tabs")
+    
     # 処理完了後の通知
     showModal(modalDialog(
       title = "Complete",
@@ -88,6 +118,55 @@ shinyServer(function(input, output, session) {
     ))
     
   })
+  
+  
+  ##### ログファイルを表示する動的UI #####
+  #output$dynamicSizeLogOutput <- renderUI({
+  #  ui_elements <- lapply(log_paths$files[,1], function(log_name) {
+  #    log_id <- paste0("logOutput_", log_name)
+  #    wellPanel(
+  #      title = paste("Log: ", log_name),
+  #      verbatimTextOutput(outputId = log_id)
+  #    )
+  #  })
+  #  do.call(fluidRow, ui_elements)
+  # })
+  
+  
+  ##### UIに文字列を供給する部分 #####
+  
+  #observe({
+  #  req(log_paths$files)  # log_paths$filesがNULLでないことを保証
+  #  
+  #  lapply(log_paths$files[,1], function(log_name) {
+  #    log_path <- log_paths$files$path[log_paths$files$name == log_name]
+  #    log_id <- paste0("logOutput_", log_name)
+  #    
+  #    output[[log_id]] <- renderText({
+  #      # reactivePollを使ってログファイルの内容を監視
+  #      logContent <- reactivePoll(1000, session, 
+  #        checkFunc = function() {
+  #        if(file.exists(log_path)) {
+  #         return(file.info(log_path)$mtime)
+  #        } else {
+  #          return(NA)  # ファイルが存在しない場合
+  #        }
+  #      }, valueFunc = function() {
+  #        if(file.exists(log_path)) {
+  #          return(readLines(log_path, warn = FALSE))
+  #        } else {
+  #          return("Log file not found.")
+  #        }
+  #      })
+  #      
+  #      paste(logContent(), collapse = "\n")
+  #    })
+  #  })
+  #})
+  
+  
+  
+  
   
   ################# Overview以降可視化部分 #################
   result_summary= reactive({result_values$result_list[[1]]})
