@@ -14,4 +14,4 @@
 # ToDo
 - per sampleの可視化を実際のhtmlと合わせる（今は微妙に仕様が違う）
 - duplicate rateをOverviewで確認できるようにする
-
+        - `future`のplanをユーザー側が変更できるようにするとか、`Rfastp`に渡す引数をどうするのとか、設定タブを整備する
