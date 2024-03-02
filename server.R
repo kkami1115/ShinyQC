@@ -2,14 +2,13 @@
 pacman::p_load(shiny,shinyjs,fs, future,furrr, plotly, progressr)
 source("fastp.R")
 
-# 非同期処理の計画を設定
-plan(multisession)  # 複数のプロセスを使用
 # プログレスバーのハンドラーを設定
 handlers(handler_shiny)
 
 
 shinyServer(function(input, output, session) {
-  
+
+    
   ################## ファイル指示系 ############################
   # フォルダ選択
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
@@ -52,6 +51,15 @@ shinyServer(function(input, output, session) {
   observeEvent(input$runButton, {
     shinyjs::disable("tabs")
     #showNotification("Processing has started...", type = "message", duration = 5) # 5秒間表示
+    
+    # 非同期処理の計画を設定
+    if(input$multi_strategy == "sequential"){
+      plan(sequential)   # 1個ずつ処理していく
+    }else if(input$multi_strategy == "multisession"){
+      plan(multisession, workers = parallel::detectCores() / 2)  # 複数のセッションを立ち上げ、Rfastpが２スレッドで動くのでMaxThreads/2
+    }
+    
+    # ディレクトリパス決定
     fastq_dir_parsed <- parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- parseDirPath(volumes, input$result_dir)
     
@@ -376,4 +384,7 @@ shinyServer(function(input, output, session) {
       geom_tile() 
     p %>% plotly::ggplotly()
   })
+  
+  # planを戻す
+  plan(sequential)
 })

@@ -47,8 +47,10 @@ extract_whatever_filtering <- function(youso){
 runRfastp <- function(result_dir_parsed, file_pair) {
     rfastp_result <- Rfastp::rfastp(read1 = file_pair$file1, 
                                     read2 = file_pair$file2, 
-                                    outputFastq = paste0(result_dir_parsed,  "/fastp_dual/processed_", file_pair$common_part)
-    )
+                                    outputFastq = paste0(result_dir_parsed,  "/fastp_dual/processed_", file_pair$common_part),
+                                    thread = 2,
+                                    verbose = TRUE
+                                    )
   return(rfastp_result)
 }
 
