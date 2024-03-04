@@ -16,3 +16,4 @@
 - per sampleの可視化を実際のhtmlと合わせる（今は微妙に仕様が違う）
 - duplicate rateをOverviewで確認できるようにする
 - `Rfastp`に渡す引数の設定をSettingsタブに追加する
+- コメント含め英語化
