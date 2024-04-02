@@ -85,11 +85,6 @@ shinyServer(function(input, output, session) {
      footer = NULL
     ))
     
-    # ログファイルのパス（動的に出力）
-    #log_file_names <- paste0(names(file_pairs_list), ".log")
-    #log_file_paths <- paste0(result_dir_parsed, "/fastp_dual/log/", log_file_names)
-    #log_paths$files <- data.frame(name = names(file_pairs_list), path = log_file_paths)
-    
     # 結果を格納するリスト
     results <- list()
     
@@ -127,54 +122,7 @@ shinyServer(function(input, output, session) {
     
   })
   
-  
-  ##### ログファイルを表示する動的UI #####
-  #output$dynamicSizeLogOutput <- renderUI({
-  #  ui_elements <- lapply(log_paths$files[,1], function(log_name) {
-  #    log_id <- paste0("logOutput_", log_name)
-  #    wellPanel(
-  #      title = paste("Log: ", log_name),
-  #      verbatimTextOutput(outputId = log_id)
-  #    )
-  #  })
-  #  do.call(fluidRow, ui_elements)
-  # })
-  
-  
-  ##### UIに文字列を供給する部分 #####
-  
-  #observe({
-  #  req(log_paths$files)  # log_paths$filesがNULLでないことを保証
-  #  
-  #  lapply(log_paths$files[,1], function(log_name) {
-  #    log_path <- log_paths$files$path[log_paths$files$name == log_name]
-  #    log_id <- paste0("logOutput_", log_name)
-  #    
-  #    output[[log_id]] <- renderText({
-  #      # reactivePollを使ってログファイルの内容を監視
-  #      logContent <- reactivePoll(1000, session, 
-  #        checkFunc = function() {
-  #        if(file.exists(log_path)) {
-  #         return(file.info(log_path)$mtime)
-  #        } else {
-  #          return(NA)  # ファイルが存在しない場合
-  #        }
-  #      }, valueFunc = function() {
-  #        if(file.exists(log_path)) {
-  #          return(readLines(log_path, warn = FALSE))
-  #        } else {
-  #          return("Log file not found.")
-  #        }
-  #      })
-  #      
-  #      paste(logContent(), collapse = "\n")
-  #    })
-  #  })
-  #})
-  
-  
-  
-  
+
   
   ################# Overview以降可視化部分 #################
   result_summary= reactive({result_values$result_list[[1]]})

@@ -17,3 +17,4 @@
 - duplicate rateをOverviewで確認できるようにする
 - `Rfastp`に渡す引数の設定をSettingsタブに追加する
 - コメント含め英語化
+- 処理実行中のストップボタン追加
