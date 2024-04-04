@@ -1,20 +1,20 @@
 
-pacman::p_load(shiny,shinyjs,fs, future,furrr, plotly, progressr)
-source("fastp.R")
+#pacman::p_load(shiny,shinyjs,fs, future,furrr, plotly, progressr)
+source("./R/fastp.R")
 
-# プログレスバーのハンドラーを設定
-handlers(handler_shiny)
+# Set handlers for progress bar
+progressr::handlers(progressr::handler_shiny)
 
 
-shinyServer(function(input, output, session) {
+shiny::shinyServer(function(input, output, session) {
 
-    
-  ################## ファイル指示系 ############################
-  # フォルダ選択
+
+  ################## Folders set section ############################
+  # Choose the directories
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyFiles::shinyDirChoose(input, "fastq_dir", roots = volumes, session = session)
   shinyFiles::shinyDirChoose(input, "result_dir", roots = volumes, session = session)
-  
+
   observe({
     cat("\ninput$fastq_dir value:\n\n")
     print(input$fastq_dir)
@@ -23,8 +23,8 @@ shinyServer(function(input, output, session) {
     cat("\ninput$result_dir value:\n\n")
     print(input$result_dir)
   })
-  
-  # 表示系
+
+  # display
   output$fastq_dir <- renderPrint({
     if (is.integer(input$fastq_dir)) {
       cat("No files have been selected (fastq_dir)")
@@ -32,7 +32,7 @@ shinyServer(function(input, output, session) {
       parseDirPath(volumes, input$fastq_dir)
     }
   })
-  
+
   output$result_dir <- renderPrint({
     if (is.integer(input$result_dir)) {
       cat("No directory has been selected (result_dir)")
@@ -40,91 +40,91 @@ shinyServer(function(input, output, session) {
       parseDirPath(volumes, input$result_dir)
     }
   })
-  
-  
-  ################## Rfastp実行系 ############################  
-  # resultの値を動的に管理
+
+
+  ################## Rfastp exec section ############################
+  # handles results value dynamically
   result_values <- reactiveValues(result_list = NULL)
-  # ログファイルのパスを動的に管理
+  # handles logfiles path dynamically
   # log_paths <- reactiveValues(files= NULL)
-  
+
   observeEvent(input$runButton, {
     shinyjs::disable("tabs")
-    #showNotification("Processing has started...", type = "message", duration = 5) # 5秒間表示
-    
-    # 非同期処理の計画を設定
+    #showNotification("Processing has started...", type = "message", duration = 5) # display for 5sec
+
+    # Set plan for asynchronous processing
     if(input$multi_strategy == "sequential"){
-      plan(sequential)   # 1個ずつ処理していく
+      plan(sequential)   # Process one file at a time
     }else if(input$multi_strategy == "multisession"){
-      plan(multisession, workers = parallel::detectCores() / 2)  # 複数のセッションを立ち上げ、Rfastpが２スレッドで動くのでMaxThreads/2
+      plan(multisession, workers = parallel::detectCores() / 2)  # MaxThreads/2 since multiple sessions are launched and rfastp runs on 2 threads.
     }
-    
-    # ディレクトリパス決定
+
+    # Set result directories
     fastq_dir_parsed <- parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- parseDirPath(volumes, input$result_dir)
-    
-    # リザルトディレクトリを作成
+
+    # Make directories
     dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE  )
-    
-    # Fastqファイルのパスを取得
+
+    # Get fastq files fullpath
     fastq_paths <- list.files(path = fastq_dir_parsed, pattern = "\\.fastq\\.gz$", full.names = TRUE, recursive = TRUE)
-    # ファイルペアを生成
+    # Make fastq filepairs as R{1,2}
     file_pairs_list <- createFilePairsList(fastq_paths, pattern = input$file_pattern)
-    
-    # `selectInput`の選択肢を動的に更新
+
+    # Dynamically update `selectInput` choices
     observe({
-      req(file_pairs_list) # `result_summary`がNULLでないことを確認
+      req(file_pairs_list) # Check `result_summary` isn't NULL
       updateSelectInput(session, "selected_sample",
                         choices = names(file_pairs_list))
     })
-    
-    # 処理中のポップアップ
+
+    # Popup while processing
     showModal(modalDialog(
      title = "Processing",
      "Please wait...",
      footer = NULL
     ))
-    
-    # 結果を格納するリスト
+
+    # list for results
     results <- list()
-    
-    # runRfastpの実行用関数
+
+    # function for exec runRfastp
     rfastp_exec <- function(p, x){
-      future_map(x, ~{
+     furrr::future_map(x, ~{
         p(.x$common_part)
         runRfastp(result_dir_parsed, .x)
         },
         seed = 1L, globals = TRUE)
     }
 
-  　# 実行部分
+    # exec above function
     withProgressShiny(message = "Now calculating...",
       {
        p <- progressor(along = names(file_pairs_list))
        results <- rfastp_exec(p, file_pairs_list)
     }
     )
-    
-    # results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE ) 
+
+    # results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE )
     result_list <- extractValues(results)
     result_values$result_list <- result_list
-    
-    # タブを有効化
+
+    # re-enable tabs
     shinyjs::enable("tabs")
-    
-    # 処理完了後の通知
+
+    # Notification for complete
     showModal(modalDialog(
       title = "Complete",
       "Rfastp processing is complete.",
       easyClose = TRUE,
       footer = modalButton("Close")
     ))
-    
-  })
-  
 
-  
-  ################# Overview以降可視化部分 #################
+  })
+
+
+
+  ################# Visualization section #################
   result_summary= reactive({result_values$result_list[[1]]})
   filtering_result = reactive({result_values$result_list[[2]]})
   duplication = reactive({result_values$result_list[[3]] })
@@ -134,16 +134,12 @@ shinyServer(function(input, output, session) {
   read2_before_filtering = reactive({result_values$result_list[[7]]})
   read1_after_filtering = reactive({result_values$result_list[[8]]})
   read2_after_filtering = reactive({result_values$result_list[[9]]})
-  
-  
-  
+
+
+
   output$all_samples_summary <- renderPlotly({
     summary_data <- result_summary()
-    
-    # 取得したデータを使って条件を確認
-    # req(summary_data)
-    
-    tmp = lapply(names(summary_data), function(sample_name) {
+    tmp <- lapply(names(summary_data), function(sample_name) {
       df <- summary_data[[sample_name]]
       df <- df[df$item == input$overview_item, ]
       df$sample <- sample_name
@@ -151,62 +147,62 @@ shinyServer(function(input, output, session) {
     }) %>% dplyr::bind_rows() %>%
       pivot_longer(cols = c("before_filtering", "after_filtering"))
     tmp$name =  factor(tmp$name, levels = c("before_filtering", "after_filtering"))
-    
+
     p <- ggplot(tmp, aes(x=sample, y=value, fill=name)) +
       geom_bar(stat = "identity", position = position_dodge()) +
-      scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red")) 
+      scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red"))
     p %>% plotly::ggplotly()
   })
-  
-  
-  
+
+
+
   output$summary <- renderTable({
     summary_data <- result_summary()
     # req(!is.null(summary_data), nrow(summary_data) > 0)
     summary_data[[input$selected_sample]]
   })
-  
+
   output$filtering_result_table <- renderTable({
     filtering_data <- filtering_result()
     # req(!is.null(filtering_data), nrow(filtering_data) > 0)
     filtering_data[[input$selected_sample]]
   })
-  
-  
-  # duplicate関連の表示
+
+
+  # elements of duplicate rates
   output$duplication_rate <- renderText({
     rate <- duplication()[[input$selected_sample]]$rate
-    paste("duplicate率:", rate)
+    paste("duplicate rate:", rate)
   })
   output$duplication_histogram <- renderPlotly({
     histogram_data <- duplication()[[input$selected_sample]]$histogram
     # barplot(histogram_data, xlab="Duplication Level", ylab="Read percent (%)")
-    p <- histogram_data %>% 
-      as.data.frame() %>% 
-      rowid_to_column() %>% 
-      rename(c("x"="rowid","y"=".")) %>% 
-      ggplot(aes(x=x,y=y, group=x)) + 
-      geom_bar(stat = "identity") + 
+    p <- histogram_data %>%
+      as.data.frame() %>%
+      rowid_to_column() %>%
+      rename(c("x"="rowid","y"=".")) %>%
+      ggplot(aes(x=x,y=y, group=x)) +
+      geom_bar(stat = "identity") +
       xlab("Duplication Level") +
-      ylab("Read Count (raw)") 
+      ylab("Read Count (raw)")
     p %>% ggplotly()
   })
   output$duplication_mean_gc <- renderPlotly({
     mean_gc_data <- duplication()[[input$selected_sample]]$mean_gc
     # plot(mean_gc_data, type='o', col='blue', main="Mean GC Content", xlab="Position", ylab="Mean GC")
-    p <- mean_gc_data %>% 
-      as.data.frame() %>% 
-      rowid_to_column() %>% 
-      rename(c("x"="rowid","y"=".")) %>% 
-      ggplot(aes(x=x,y=y)) + 
-      geom_line() + 
+    p <- mean_gc_data %>%
+      as.data.frame() %>%
+      rowid_to_column() %>%
+      rename(c("x"="rowid","y"=".")) %>%
+      ggplot(aes(x=x,y=y)) +
+      geom_line() +
       xlab("Duplication Level") +
       ylab("Mean GC Ratio (%)")
     p %>% ggplotly()
   })
-  
-  
-  # insert size関連の表示
+
+
+  # elements of insert size
   output$insert_size_peak <- renderText({
     peak <- insert_size()[[input$selected_sample]]$peak
     paste("insert size peak:", peak)
@@ -218,121 +214,121 @@ shinyServer(function(input, output, session) {
   output$insert_size_histogram <- renderPlotly({
     insert_size_histogram <- insert_size()[[input$selected_sample]]$histogram
     # plot(insert_size_histogram, type='o', col='blue', main="Insert size", xlab="Position", ylab="value")
-    p <- insert_size_histogram %>% 
-      as.data.frame() %>% 
-      rowid_to_column() %>% 
-      rename(c("x"="rowid","y"=".")) %>% 
+    p <- insert_size_histogram %>%
+      as.data.frame() %>%
+      rowid_to_column() %>%
+      rename(c("x"="rowid","y"=".")) %>%
       ggplot(aes(x=x,y=y, group=x)) + geom_bar(stat = "identity")
     p %>% plotly::ggplotly()
   })
-  
-  
-  # adapter cutting関連の表示
+
+
+  # elements of adapter cutting
   output$adapter_cutting <- renderTable({
-    adapter_cutting()[[input$selected_sample]] 
+    adapter_cutting()[[input$selected_sample]]
   })
-  
-  
-  # read1 before filtering関連の表示
+
+
+  # elements of read1 before filtering
   output$read1_before_filtering_main <- renderTable({
     read1_before_filtering()[[input$selected_sample]]$main
   })
   output$read1_before_filtering_qualitycurves <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_before_filtering_contentcurves <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_before_filtering_kmer <- renderPlotly({
     tmp <- read1_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
-      rownames_to_column() %>% 
-      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
-      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
+      tibble::rownames_to_column() %>%
+      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
+      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
-      geom_tile() 
+      geom_tile()
     p %>% plotly::ggplotly()
   })
-  
-  # read1 after filtering関連の表示
+
+  # elements of read1 after filtering
   output$read1_after_filtering_main <- renderTable({
     read1_after_filtering()[[input$selected_sample]]$main
   })
   output$read1_after_filtering_qualitycurves <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_after_filtering_contentcurves <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_after_filtering_kmer <- renderPlotly({
     tmp <- read1_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
-      rownames_to_column() %>% 
-      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
-      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
+      tibble::rownames_to_column() %>%
+      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
+      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
-      geom_tile() 
+      geom_tile()
     p %>% plotly::ggplotly()
   })
-  
-  # read2 before filtering関連の表示
+
+  # elements of read2 before filtering
   output$read2_before_filtering_main <- renderTable({
     read2_before_filtering()[[input$selected_sample]]$main
   })
   output$read2_before_filtering_qualitycurves <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_before_filtering_contentcurves <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_before_filtering_kmer <- renderPlotly({
     tmp <- read2_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
-      rownames_to_column() %>% 
-      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
-      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
+      tibble::rownames_to_column() %>%
+      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
+      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
-      geom_tile() 
+      geom_tile()
     p %>% plotly::ggplotly()
   })
-  
-  # read2 after filtering関連の表示
+
+  # elements of read2 after filtering
   output$read2_after_filtering_main <- renderTable({
     read2_after_filtering()[[input$selected_sample]]$main
   })
   output$read2_after_filtering_qualitycurves <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$quality_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_after_filtering_contentcurves <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$content_curves  %>% pivot_longer(cols = everything())
-    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line() 
+    p <- ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_after_filtering_kmer <- renderPlotly({
     tmp <- read2_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
-      rownames_to_column() %>% 
-      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>% 
-      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>% 
+      tibble::rownames_to_column() %>%
+      mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
+      mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
       ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
-      geom_tile() 
+      geom_tile()
     p %>% plotly::ggplotly()
   })
-  
-  # planを戻す
+
+  # Back plan to sequential (default)
   plan(sequential)
 })
