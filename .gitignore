@@ -56,3 +56,4 @@ renv/*
 
 # I'm a Mac.
 .DS_Store
+.Rproj.user
