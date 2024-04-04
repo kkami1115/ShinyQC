@@ -1,20 +1,19 @@
 # ShinyQC
-指定したディレクトリ内のfastqファイルを自動でペアにして、Rfastpをpaired-endで実行するGUIです。
+GUI that automatically pairs fastq files in a specified directory and executes Rfastp with paired-end.
 
-# 使い方
-`fastq_dir` ... fastqが存在するディレクトリ。
+# Usage.
+`fastq_dir` ... The directory where fastqs exists.
 
-`result_dir` ... 結果(html,json)と処理済fastqを出力するディレクトリ。
+`result_dir` ... The directory where results (html,json) and processed fastqs are output.
 
-`file_pattern` ... Read1とRead2のパターンを正規表現で。例: `"_R[12]"`
+`file_pattern` ... Read1 and Read2 patterns in regular expression. Example: `_R[12]`
 
-全ファイルの処理が終了するとOverviewタブとVisualize per sampleタブの内容が表示できるようになります。
+When all files have been processed, the contents of the Overview and Visualize per sample tabs can be displayed.
 
 
 # ToDo
-- 出力先をサンプルごとにフォルダ分けする
-- per sampleの可視化を実際のhtmlと合わせる（今は微妙に仕様が違う）
-- duplicate rateをOverviewで確認できるようにする
-- `Rfastp`に渡す引数の設定をSettingsタブに追加する
-- コメント含め英語化
-- 処理実行中のストップボタン追加
+- Separate the output destination into directories for each sample.
+- Match the visualize per sample with the actual html (the specification is slightly different now)
+- Make duplicate rate visible in Overview
+- Add settings for arguments passed to `Rfastp` in the Settings tab
+- add a stop button during processing
