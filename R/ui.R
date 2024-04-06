@@ -1,6 +1,6 @@
 
 #pacman::p_load(shiny, shinyFiles, shinyjs, plotly, bslib)
-source("./R/fastp.R")
+#source("./R/fastp.R")
 
 theme <- bslib::bs_theme(version = 4)
 

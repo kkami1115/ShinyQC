@@ -4,6 +4,8 @@
 #library(Rfastp)
 
 # functions
+
+#' @importFrom magrittr %>%
 createFilePairsList <- function(paths, pattern) {
   common_parts <- gsub(paste0(pattern,"\\.fastq\\.gz"), "", paths) %>% basename()
   unique_common_parts <- unique(common_parts)
@@ -20,6 +22,7 @@ createFilePairsList <- function(paths, pattern) {
   return(file_pairs_list)
 }
 
+#' @importFrom magrittr %>%
 extract_summary_parts <- function(youso) {
   # Extract 'before_filtering' and 'after_filtering' parts and convert to data frames
   before_filtering_df <- youso$summary$before_filtering %>% as.data.frame() %>% t() %>% data.frame() %>% tibble::rownames_to_column()
@@ -29,6 +32,7 @@ extract_summary_parts <- function(youso) {
   return( dplyr::inner_join(before_filtering_df, after_filtering_df, by="item"))
 }
 
+#' @importFrom magrittr %>%
 extract_whatever_filtering <- function(youso){
   total_reads <- youso$total_reads
   total_bases <- youso$total_bases
@@ -41,8 +45,10 @@ extract_whatever_filtering <- function(youso){
 }
 
 
-# exec for Rfastp
+#' exec for Rfastp
+#' @importFrom magrittr %>%
 runRfastp <- function(result_dir_parsed, file_pair) {
+  dir.create(path = paste0(result_dir_parsed,  "/fastp_dual/", file_pair$common_part), recursive = TRUE, mode = "0777")
   rfastp_result <- Rfastp::rfastp(read1 = file_pair$file1,
                                   read2 = file_pair$file2,
                                   outputFastq = paste0(result_dir_parsed,  "/fastp_dual/", file_pair$common_part, "/processed_", file_pair$common_part),
@@ -54,7 +60,8 @@ runRfastp <- function(result_dir_parsed, file_pair) {
 
 
 
-# Get values and dataframes
+#' Get values and dataframes from results
+#' @importFrom magrittr %>%
 extractValues <- function(results){
   summary = results %>% lapply(extract_summary_parts)
   filtering_result = results %>%
@@ -78,9 +85,4 @@ extractValues <- function(results){
 
   result_list = list(summary, filtering_result, duplication, insert_size, adapter_cutting, read1_before_filtering, read2_before_filtering, read1_after_filtering, read2_after_filtering)
   return(result_list)
-}
-
-
-launch_app <- function() {
-  shiny::runApp("app")
 }
