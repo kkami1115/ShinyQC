@@ -5,7 +5,7 @@ source("utils-pipe.R")
 source("library_tmp.R")
 
 # Specify seed is fixed
-seed = TRUE
+.options = furrr_options(seed = FALSE)
 
 # Set handlers for progress bar
 progressr::handlers(progressr::handler_shiny)
@@ -224,7 +224,7 @@ shiny::shinyServer(function(input, output, session) {
     p <- insert_size_histogram %>%
       as.data.frame() %>%
       tibble::rowid_to_column() %>%
-      dployr::rename(c("x"="rowid","y"=".")) %>%
+      dplyr::rename(c("x"="rowid","y"=".")) %>%
       ggplot2::ggplot(aes(x=x,y=y, group=x)) + ggplot2::geom_bar(stat = "identity")
     p %>% plotly::ggplotly()
   })
