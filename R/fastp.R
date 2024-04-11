@@ -5,84 +5,82 @@
 
 # functions
 
+#' Create file pairs list
+#'
+#' @param paths A character vector of file paths
+#' @param pattern A regular expression pattern to match file names
+#' @return A list of file pairs
 #' @importFrom magrittr %>%
-createFilePairsList <- function(paths, pattern) {
-  common_parts <- gsub(paste0(pattern,"\\.fastq\\.gz"), "", paths) %>% basename()
+create_file_pairs_list <- function(paths, pattern) {
+  common_parts <- basename(gsub(paste0(pattern, "\\.fastq\\.gz"), "", paths))
   unique_common_parts <- unique(common_parts)
+  
   file_pairs_list <- list()
-  for(common_part in unique_common_parts){
+  for (common_part in unique_common_parts) {
     matched_files <- grep(common_part, paths, value = TRUE)
-    if(length(matched_files) == 2 ){
+    if (length(matched_files) == 2) {
       file_pairs_list[[common_part]] <- list(
         common_part = common_part,
         file1 = matched_files[1],
-        file2 = matched_files[2])
+        file2 = matched_files[2]
+      )
     }
   }
+  
   return(file_pairs_list)
 }
 
-#' @importFrom magrittr %>%
-extract_summary_parts <- function(youso) {
-  # Extract 'before_filtering' and 'after_filtering' parts and convert to data frames
-  before_filtering_df <- youso$summary$before_filtering %>% as.data.frame() %>% t() %>% data.frame() %>% tibble::rownames_to_column()
-  after_filtering_df <- youso$summary$after_filtering %>% as.data.frame() %>% t() %>% data.frame() %>% tibble::rownames_to_column()
-  names(before_filtering_df) = c("item", "before_filtering")
-  names(after_filtering_df) = c("item", "after_filtering")
-  return( dplyr::inner_join(before_filtering_df, after_filtering_df, by="item"))
-}
-
-#' @importFrom magrittr %>%
-extract_whatever_filtering <- function(youso){
-  total_reads <- youso$total_reads
-  total_bases <- youso$total_bases
-  q20_bases <- youso$q20_bases
-  q30_bases <- youso$q30_bases
-  quality_curves <- youso$quality_curves %>% as.data.frame()
-  content_curves <- youso$content_curves %>% as.data.frame()
-  kmer_count <- youso$kmer_count %>% as.data.frame() %>% t()
-  return(list(main=data.frame(total_reads, total_bases, q20_bases, q30_bases), quality_curves = quality_curves, content_curves = content_curves, kmer_count = kmer_count))
-}
 
 
-#' exec for Rfastp
-#' @importFrom magrittr %>%
-runRfastp <- function(result_dir_parsed, file_pair) {
-  dir.create(path = paste0(result_dir_parsed,  "/fastp_dual/", file_pair$common_part), recursive = TRUE, mode = "0777")
-  rfastp_result <- Rfastp::rfastp(read1 = file_pair$file1,
-                                  read2 = file_pair$file2,
-                                  outputFastq = paste0(result_dir_parsed,  "/fastp_dual/", file_pair$common_part, "/processed_", file_pair$common_part),
-                                  thread = 2,
-                                  verbose = TRUE
+#' Run Rfastp
+#'
+#' @param result_dir_parsed Parsed result directory path
+#' @param file_pair A list containing file pair information
+#' @param threads Number of threads to use (default: 2)
+#' @return Rfastp result object
+run_rfastp <- function(result_dir_parsed, file_pair, threads = 2) {
+  output_dir <- file.path(result_dir_parsed, "fastp_dual", file_pair$common_part)
+  dir.create(output_dir, recursive = TRUE, mode = "0777")
+  
+  output_fastq <- file.path(output_dir, paste0("processed_", file_pair$common_part))
+  
+  Rfastp::rfastp(
+    read1 = file_pair$file1,
+    read2 = file_pair$file2,
+    outputFastq = output_fastq,
+    thread = threads,
+    verbose = TRUE
   )
-  return(rfastp_result)
 }
 
 
 
-#' Get values and dataframes from results
-#' @importFrom magrittr %>%
-extractValues <- function(results){
-  summary = results %>% lapply(extract_summary_parts)
-  filtering_result = results %>%
-    lapply(function(x){x$filtering_result}) %>%
-    lapply(as.data.frame) %>%
-    lapply(t) %>%
-    lapply(as.data.frame) %>%
-    lapply(tibble::rownames_to_column)
-  duplication = results %>% lapply(function(x){x$duplication})
-  insert_size = results %>% lapply(function(x){x$insert_size})
-  adapter_cutting = results %>%
-    lapply(function(x){x$adapter_cutting}) %>%
-    lapply(as.data.frame) %>%
-    lapply(t) %>%
-    lapply(as.data.frame) %>%
-    lapply(tibble::rownames_to_column)
-  read1_before_filtering = results %>% lapply(function(x){x$read1_before_filtering}) %>% lapply(extract_whatever_filtering)
-  read2_before_filtering = results %>% lapply(function(x){x$read2_before_filtering}) %>% lapply(extract_whatever_filtering)
-  read1_after_filtering = results %>% lapply(function(x){x$read1_after_filtering}) %>% lapply(extract_whatever_filtering)
-  read2_after_filtering = results %>% lapply(function(x){x$read2_after_filtering})%>% lapply(extract_whatever_filtering)
-
-  result_list = list(summary, filtering_result, duplication, insert_size, adapter_cutting, read1_before_filtering, read2_before_filtering, read1_after_filtering, read2_after_filtering)
-  return(result_list)
+#' Extract values and data frames from Rfastp results
+#'
+#' @param results A list of Rfastp result objects
+#' @return A list containing extracted values and data frames
+extract_values <- function(results) {
+  list(
+    summary = lapply(results, extract_summary_parts),
+    filtering_result = lapply(results, function(x) {
+      x$filtering_result %>% 
+        as.data.frame() %>% 
+        t() %>% 
+        as.data.frame() %>% 
+        tibble::rownames_to_column()
+    }),
+    duplication = lapply(results, function(x) x$duplication),
+    insert_size = lapply(results, function(x) x$insert_size),
+    adapter_cutting = lapply(results, function(x) {
+      x$adapter_cutting %>% 
+        as.data.frame() %>% 
+        t() %>% 
+        as.data.frame() %>% 
+        tibble::rownames_to_column()
+    }),
+    read1_before_filtering = lapply(results, function(x) extract_filtering_info(x$read1_before_filtering)),
+    read2_before_filtering = lapply(results, function(x) extract_filtering_info(x$read2_before_filtering)),
+    read1_after_filtering = lapply(results, function(x) extract_filtering_info(x$read1_after_filtering)),
+    read2_after_filtering = lapply(results, function(x) extract_filtering_info(x$read2_after_filtering))
+  )
 }
