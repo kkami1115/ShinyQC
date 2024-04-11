@@ -14,7 +14,7 @@ progressr::handlers(progressr::handler_shiny)
 shiny::shinyServer(function(input, output, session) {
 
 
-  ################## Folders set section ############################
+  ################## Directories section ############################
   # Choose the directories
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), shinyFiles::getVolumes()())
   shinyFiles::shinyDirChoose(input, "fastq_dir", roots = volumes, session = session)
@@ -74,7 +74,7 @@ shiny::shinyServer(function(input, output, session) {
     # Get fastq files fullpath
     fastq_paths <- list.files(path = fastq_dir_parsed, pattern = "\\.fastq\\.gz$", full.names = TRUE, recursive = TRUE)
     # Make fastq filepairs as R{1,2}
-    file_pairs_list <- createFilePairsList(fastq_paths, pattern = input$file_pattern)
+    file_pairs_list <- create_file_pairs_list(fastq_paths, pattern = input$file_pattern)
 
     # Dynamically update `selectInput` choices
     shiny::observe({
@@ -93,11 +93,11 @@ shiny::shinyServer(function(input, output, session) {
     # list for results
     results <- list()
 
-    # function for exec runRfastp
+    # function for exec run_rfastp
     rfastp_exec <- function(p, x){
      furrr::future_map(x, ~{
         htmltools::p(.x$common_part)
-        runRfastp(result_dir_parsed, .x)
+       run_rfastp(result_dir_parsed, .x)
         },
         seed = 1L, globals = TRUE)
     }
@@ -110,11 +110,10 @@ shiny::shinyServer(function(input, output, session) {
     }
     )
 
-    # results <- future_map(file_pairs_list, ~runRfastp(result_dir_parsed, .x), seed=1L, globals=TRUE )
-    result_list <- extractValues(results)
+    result_list <- extract_values(results)
     result_values$result_list <- result_list
 
-    # re-enable tabs
+    # enable tabs
     shinyjs::enable("tabs")
 
     # Notification for complete
