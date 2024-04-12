@@ -255,8 +255,8 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read1_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(first_char = stringr::str_sub(.data$rowname, 1 ,2)) %>%
+      dplyr::mutate(sore_igai = stringr::str_sub(.data$rowname, start = 3) ) %>%
       ggplot2::ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
@@ -282,8 +282,8 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read1_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(first_char = stringr::str_sub(.data$rowname, 1 ,2)) %>%
+      dplyr::mutate(sore_igai = stringr::str_sub(.data$rowname, start = 3) ) %>%
       ggplot2::ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
@@ -309,8 +309,8 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read2_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(first_char = stringr::str_sub(.data$rowname, 1 ,2)) %>%
+      dplyr::mutate(sore_igai = stringr::str_sub(.data$rowname, start = 3) ) %>%
       ggplot2::ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
@@ -338,8 +338,8 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read2_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(first_char = str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(sore_igai = str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(first_char = stringr::str_sub(.data$rowname, 1 ,2)) %>%
+      dplyr::mutate(sore_igai = stringr::str_sub(.data$rowname, start = 3) ) %>%
       ggplot2::ggplot(aes(x = first_char, y = sore_igai, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
