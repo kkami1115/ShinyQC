@@ -68,6 +68,12 @@ shiny::shinyServer(function(input, output, session) {
     fastq_dir_parsed <- shinyFiles::parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- shinyFiles::parseDirPath(volumes, input$result_dir)
 
+    # Validate input
+    if (is.null(fastq_dir_parsed) || is.null(result_dir_parsed)) {
+      shiny::showNotification("Please select valid directories.", type = "error")
+      return()
+    }
+    
     # Make directories
     dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
@@ -103,7 +109,7 @@ shiny::shinyServer(function(input, output, session) {
     }
 
     # exec above function
-    progressr::withProgressShiny(message = "Now calculating...",
+    progressr::withProgressShiny(message = "Processing...",
       {
        p <- progressr::progressor(along = names(file_pairs_list))
        results <- rfastp_exec(p, file_pairs_list)
