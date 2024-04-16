@@ -5,7 +5,7 @@ source("utils-pipe.R")
 source("library_tmp.R")
 
 # Specify seed is fixed
-.options = furrr_options(seed = FALSE)
+.options = furrr_options(seed = TRUE)
 
 # Set handlers for progress bar
 progressr::handlers(progressr::handler_shiny)
@@ -73,7 +73,7 @@ shiny::shinyServer(function(input, output, session) {
       shiny::showNotification("Please select valid directories.", type = "error")
       return()
     }
-    
+
     # Make directories
     dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
@@ -102,10 +102,10 @@ shiny::shinyServer(function(input, output, session) {
     # function for exec run_rfastp
     rfastp_exec <- function(p, x){
      furrr::future_map(x, ~{
-        htmltools::p(.x$common_part)
        run_rfastp(result_dir_parsed, .x)
+       p(.x$common_part)
         },
-        seed = 1L, globals = TRUE)
+        seed = TRUE, globals = TRUE)
     }
 
     # exec above function
