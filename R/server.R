@@ -70,17 +70,23 @@ shiny::shinyServer(function(input, output, session) {
 
     # Validate input
     if (is.null(fastq_dir_parsed) || is.null(result_dir_parsed)) {
-      shiny::showNotification("Please select valid directories.", type = "error")
+      shiny::showNotification("Please select a valid directory.", type = "error", closeButton = TRUE)
       return()
+    }
+    # Get fastq files fullpath and check existence
+    fastq_paths <- list.files(fastq_dir_parsed, pattern = "\\.fastq\\.gz$|\\.fastq$|\\.fq$", full.names = TRUE, recursive = TRUE)
+    if (length(fastq_paths) == 0) {
+      shiny::showNotification("We can't find any fastq files in the directory.", type = "error", closeButton = TRUE)
     }
 
     # Make directories
     dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
-    # Get fastq files fullpath
-    fastq_paths <- list.files(path = fastq_dir_parsed, pattern = "\\.fastq\\.gz$", full.names = TRUE, recursive = TRUE)
     # Make fastq filepairs as R{1,2}
     file_pairs_list <- create_file_pairs_list(fastq_paths, pattern = input$file_pattern)
+    if (length(file_pairs_list) == 0) {
+      shiny::showNotification("File pairing failed or no valid file pairs found.", type = "error", closeButton = TRUE)
+    }
 
     # Dynamically update `selectInput` choices
     shiny::observe({
@@ -102,8 +108,8 @@ shiny::shinyServer(function(input, output, session) {
     # function for exec run_rfastp
     rfastp_exec <- function(p, x){
      furrr::future_map(x, ~{
-       run_rfastp(result_dir_parsed, .x)
        p(.x$common_part)
+       run_rfastp(result_dir_parsed, .x)
         },
         seed = TRUE, globals = TRUE)
     }
