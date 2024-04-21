@@ -12,7 +12,6 @@ When all files have been processed, the contents of the Overview and Visualize p
 
 
 # ToDo
-- Separate the output destination into directories for each sample.
 - Match the visualize per sample with the actual html (the specification is slightly different now)
 - Make duplicate rate visible in Overview
 - Add settings for arguments passed to `Rfastp` in the Settings tab
