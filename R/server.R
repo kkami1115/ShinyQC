@@ -32,7 +32,7 @@ shiny::shinyServer(function(input, output, session) {
   # display
   output$fastq_dir <- shiny::renderPrint({
     if (is.integer(input$fastq_dir)) {
-      cat("No files have been selected (fastq_dir)")
+      cat("No directory have been selected (fastq_dir)")
     } else {
       shinyFiles::parseDirPath(volumes, input$fastq_dir)
     }
@@ -128,13 +128,15 @@ shiny::shinyServer(function(input, output, session) {
     # enable tabs
     shinyjs::enable("tabs")
 
-    # Notification for complete
-    shiny::showModal(shiny::modalDialog(
-      title = "Complete",
-      "Rfastp processing is complete.",
-      easyClose = TRUE,
-      footer = shiny::modalButton("Close")
-    ))
+    if (!is.null(result_list)){
+      # Notification for complete
+      shiny::showModal(shiny::modalDialog(
+        title = "Complete",
+        "Rfastp processing is complete.",
+        easyClose = TRUE,
+        footer = shiny::modalButton("Close")
+      ))
+    }
 
   })
 
