@@ -79,9 +79,6 @@ shiny::shinyServer(function(input, output, session) {
       shiny::showNotification("We can't find any fastq files in the directory.", type = "error", closeButton = TRUE)
     }
 
-    # Make directories
-    dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
-
     # Make fastq filepairs as R{1,2}
     file_pairs_list <- create_file_pairs_list(fastq_paths, pattern = input$file_pattern)
     if (length(file_pairs_list) == 0) {
@@ -102,42 +99,52 @@ shiny::shinyServer(function(input, output, session) {
      footer = NULL
     ))
 
-    # list for results
-    results <- list()
+    # Make directories
+    dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
-    # function for exec run_rfastp
-    rfastp_exec <- function(p, x){
-     furrr::future_map(x, ~{
-       p(.x$common_part)
-       run_rfastp(result_dir_parsed, .x)
-        },
-        seed = TRUE, globals = TRUE)
-    }
+    # Initialize progress and notifications
+    total_samples <- length(file_pairs_list)
+    completed_samples <- 0 # This counter will track the number of completed samples
 
-    # exec above function
-    progressr::withProgressShiny(message = "Processing...",
-      {
-       p <- progressr::progressor(along = names(file_pairs_list))
-       results <- rfastp_exec(p, file_pairs_list)
-    }
-    )
+    progressr::withProgressShiny(message = "Processing sample: ", value = 0, {
+      p <- progressr::progressor(along = file_pairs_list)
+      results <- furrr::future_map(file_pairs_list, function(sample) {
+        p(sprintf(sample$common_part)) # Update progress
 
-    result_list <- extract_values(results)
-    result_values$result_list <- result_list
+        result <- run_rfastp(result_dir_parsed, sample) # Processing function
 
-    # enable tabs
-    shinyjs::enable("tabs")
+        # Increment completed_samples and calculate ongoing samples
+        completed_samples <<- completed_samples + 1
+        ongoing_samples <- total_samples - completed_samples
 
-    if (!is.null(result_list)){
-      # Notification for complete
-      shiny::showModal(shiny::modalDialog(
-        title = "Complete",
-        "Rfastp processing is complete.",
-        easyClose = TRUE,
-        footer = shiny::modalButton("Close")
-      ))
-    }
+        # Show current progress
+        shiny::showNotification(
+          paste(ongoing_samples, "samples are currently being processed,", completed_samples, "samples completed."),
+          type = "message", duration = 5
+        )
 
+        # Notify when a sample is completed
+        shiny::showNotification(
+          paste("Sample", sample$common_part, "processing completed."),
+          type = "message", duration = 5
+        )
+        return(result)
+      }, .options = furrr_options(seed = TRUE))
+
+      result_list <- extract_values(results)
+      result_values$result_list <- result_list
+
+      # Enable tabs after processing
+      shinyjs::enable("tabs")
+    })
+
+    # Summary notification after completion
+    shiny::showModal(shiny::modalDialog(
+      title = "Processing Complete",
+      paste(length(result_values$result_list), "samples processed. All tasks completed successfully."),
+      easyClose = TRUE,
+      footer = shiny::modalButton("Close")
+    ))
   })
 
 
