@@ -57,11 +57,13 @@ shiny::shinyServer(function(input, output, session) {
     shinyjs::disable("tabs")
     #showNotification("Processing has started...", type = "message", duration = 5) # display for 5sec
 
+    threads = as.numeric(input$threads)
+
     # Set plan for asynchronous processing
     if(input$multi_strategy == "sequential"){
       future::plan(future::sequential())   # Process one file at a time
     }else if(input$multi_strategy == "multisession"){
-      future::plan(future::multisession(), workers = parallel::detectCores() / 2)  # MaxThreads/2 since multiple sessions are launched and rfastp runs on 2 threads.
+      future::plan(future::multisession(), workers = (parallel::detectCores() / threads))  # MaxThreads/2 since multiple sessions are launched and rfastp runs on 2 threads.
     }
 
     # Set result directories
@@ -106,10 +108,10 @@ shiny::shinyServer(function(input, output, session) {
     results <- list()
 
     # function for exec run_rfastp
-    rfastp_exec <- function(p, x){
+    rfastp_exec <- function(p, x, threads){
      furrr::future_map(x, ~{
        p(.x$common_part)
-       run_rfastp(result_dir_parsed, .x)
+       run_rfastp(result_dir_parsed, .x, threads)
         },
         seed = TRUE, globals = TRUE)
     }
@@ -118,7 +120,7 @@ shiny::shinyServer(function(input, output, session) {
     progressr::withProgressShiny(message = "Processing...",
       {
        p <- progressr::progressor(along = names(file_pairs_list))
-       results <- rfastp_exec(p, file_pairs_list)
+       results <- rfastp_exec(p, file_pairs_list, threads)
     }
     )
 
