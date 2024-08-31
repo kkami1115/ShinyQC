@@ -124,3 +124,53 @@ extract_values <- function(results) {
     read2_after_filtering = lapply(results, function(x) extract_filtering_info(x$read2_after_filtering))
   )
 }
+
+
+#' convert digits for better summary
+#'
+#' @param df summary df
+#' @return digits-converted df
+convert_units <- function(df) {
+  # 数値変換と演算を先に行う
+  total_reads_before <- df[df$item == "total_reads", "before_filtering"] / 1e6
+  total_reads_after <- df[df$item == "total_reads", "after_filtering"] / 1e6
+
+  total_bases_before <- df[df$item == "total_bases", "before_filtering"] / 1e9
+  total_bases_after <- df[df$item == "total_bases", "after_filtering"] / 1e9
+
+  q20_bases_before <- df[df$item == "q20_bases", "before_filtering"] / 1e9
+  q20_bases_after <- df[df$item == "q20_bases", "after_filtering"] / 1e9
+
+  q30_bases_before <- df[df$item == "q30_bases", "before_filtering"] / 1e9
+  q30_bases_after <- df[df$item == "q30_bases", "after_filtering"] / 1e9
+
+  q20_rate_before <- df[df$item == "q20_rate", "before_filtering"] * 100
+  q20_rate_after <- df[df$item == "q20_rate", "after_filtering"] * 100
+
+  q30_rate_before <- df[df$item == "q30_rate", "before_filtering"] * 100
+  q30_rate_after <- df[df$item == "q30_rate", "after_filtering"] * 100
+
+  read1_length_before <- round(df[df$item == "read1_mean_length", "before_filtering"])
+  read1_length_after <- round(df[df$item == "read1_mean_length", "after_filtering"])
+
+  read2_length_before <- round(df[df$item == "read2_mean_length", "before_filtering"])
+  read2_length_after <- round(df[df$item == "read2_mean_length", "after_filtering"])
+
+  gc_content_before <- df[df$item == "gc_content", "before_filtering"] * 100
+  gc_content_after <- df[df$item == "gc_content", "after_filtering"] * 100
+
+  # 文字列として単位を追加
+  df[df$item == "total_reads", 2:3] <- c(paste0(round(total_reads_before, 2), " M"), paste0(round(total_reads_after, 2), " M"))
+  df[df$item == "total_bases", 2:3] <- c(paste0(round(total_bases_before, 2), " G"), paste0(round(total_bases_after, 2), " G"))
+  df[df$item == "q20_bases", 2:3] <- c(paste0(round(q20_bases_before, 2), " G"), paste0(round(q20_bases_after, 2), " G"))
+  df[df$item == "q30_bases", 2:3] <- c(paste0(round(q30_bases_before, 2), " G"), paste0(round(q30_bases_after, 2), " G"))
+  df[df$item == "q20_rate", 2:3] <- c(paste0(round(q20_rate_before, 2), "%"), paste0(round(q20_rate_after, 2), "%"))
+  df[df$item == "q30_rate", 2:3] <- c(paste0(round(q30_rate_before, 2), "%"), paste0(round(q30_rate_after, 2), "%"))
+  df[df$item == "read1_mean_length", 2:3] <- c(paste0(read1_length_before, " bp"), paste0(read1_length_after, " bp"))
+  df[df$item == "read2_mean_length", 2:3] <- c(paste0(read2_length_before, " bp"), paste0(read2_length_after, " bp"))
+  df[df$item == "gc_content", 2:3] <- c(paste0(round(gc_content_before, 2), "%"), paste0(round(gc_content_after, 2), "%"))
+
+  return(df)
+}
+
+

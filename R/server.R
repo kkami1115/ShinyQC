@@ -81,8 +81,6 @@ shiny::shinyServer(function(input, output, session) {
       shiny::showNotification("We can't find any fastq files in the directory.", type = "error", closeButton = TRUE)
     }
 
-    # Make directories
-    dir.create( paste0(result_dir_parsed, "/fastp_dual/"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
     # Make fastq filepairs as R{1,2}
     file_pairs_list <- create_file_pairs_list(fastq_paths, pattern = input$file_pattern)
@@ -179,7 +177,7 @@ shiny::shinyServer(function(input, output, session) {
   output$summary <- shiny::renderTable({
     summary_data <- result_summary()
     # req(!is.null(summary_data), nrow(summary_data) > 0)
-    summary_data[[input$selected_sample]]
+    summary_data[[input$selected_sample]] %>% convert_units()
   })
 
   output$filtering_result_table <- shiny::renderTable({

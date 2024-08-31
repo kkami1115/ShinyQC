@@ -11,7 +11,7 @@ shiny::fluidPage(
 
   # tabset panel
   shiny::tabsetPanel(id="tabs",
-  
+
     # Fastp execution tab
     shiny::tabPanel("Fastp execution",
                    # Button for selecting fastq dir
@@ -30,13 +30,13 @@ shiny::fluidPage(
     shiny::tabPanel("Overview",
                     shiny::sidebarLayout(
                       shiny::sidebarPanel(
-                        shiny::selectInput("overview_item", "Select Quality Metric", 
-                                           choices = c("total_reads", 
-                                                       "total_bases", 
-                                                       "q20_bases", 
+                        shiny::selectInput("overview_item", "Select Quality Metric",
+                                           choices = c("total_reads",
+                                                       "total_bases",
+                                                       "q20_bases",
                                                        "q30_bases",
                                                        "q20_rate",
-                                                       "q30_rate", 
+                                                       "q30_rate",
                                                        "read1_mean_length",
                                                        "read2_mean_length",
                                                        "gc_content")
@@ -47,11 +47,11 @@ shiny::fluidPage(
                       )
                     )
     ),
-    
-    
+
+
     # visualize per sample tab
-    
-    
+
+
     shiny::tabPanel("Visualize per sample",
                     shiny::sidebarLayout(
                       shiny::sidebarPanel(
@@ -102,13 +102,15 @@ shiny::fluidPage(
                       )
                     )
     ),
-    
+
+    # Settings tab
     # Settings tab
     shiny::tabPanel("Settings",
                     shiny::selectInput("multi_strategy", "Choose a strategy:",
-                                       list("sequential", "multisession")
-                    )
-    )
+                                       list("sequential", "multisession")),
+                    shiny::selectInput("threads", "Thread(s) for fastp",
+                                       list(1,2,3,4,5,6,7,8))
+                      )
   )
 )
 
