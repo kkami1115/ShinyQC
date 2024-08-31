@@ -84,13 +84,15 @@ run_rfastp <- function(result_dir_parsed, file_pair, threads = 2) {
 
   output_fastq <- file.path(output_dir, paste0("trimmed_", file_pair$common_part))
 
-  Rfastp::rfastp(
+  result <- Rfastp::rfastp(
     read1 = file_pair$file1,
     read2 = file_pair$file2,
     outputFastq = output_fastq,
     thread = threads,
     verbose = TRUE
   )
+
+  return(result)
 }
 
 
@@ -130,7 +132,7 @@ extract_values <- function(results) {
 #'
 #' @param df summary df
 #' @return digits-converted df
-convert_units <- function(df) {
+convert_units_summary <- function(df) {
   # 数値変換と演算を先に行う
   total_reads_before <- df[df$item == "total_reads", "before_filtering"] / 1e6
   total_reads_after <- df[df$item == "total_reads", "after_filtering"] / 1e6

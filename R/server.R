@@ -20,15 +20,6 @@ shiny::shinyServer(function(input, output, session) {
   shinyFiles::shinyDirChoose(input, "fastq_dir", roots = volumes, session = session)
   shinyFiles::shinyDirChoose(input, "result_dir", roots = volumes, session = session)
 
-  shiny::observe({
-    cat("\ninput$fastq_dir value:\n\n")
-    print(input$fastq_dir)
-  })
-  shiny::observe({
-    cat("\ninput$result_dir value:\n\n")
-    print(input$result_dir)
-  })
-
   # display
   output$fastq_dir <- shiny::renderPrint({
     if (is.integer(input$fastq_dir)) {
@@ -50,12 +41,10 @@ shiny::shinyServer(function(input, output, session) {
   ################## Rfastp exec section ############################
   # handles results value dynamically
   result_values <- shiny::reactiveValues(result_list = NULL)
-  # handles logfiles path dynamically
-  # log_paths <- shiny::reactiveValues(files= NULL)
+
 
   shiny::observeEvent(input$runButton, {
     shinyjs::disable("tabs")
-    #showNotification("Processing has started...", type = "message", duration = 5) # display for 5sec
 
     threads = as.numeric(input$threads)
 
@@ -92,14 +81,14 @@ shiny::shinyServer(function(input, output, session) {
     shiny::observe({
       shiny::req(file_pairs_list) # Check `result_summary` isn't NULL
       shiny::updateSelectInput(session, "selected_sample",
-                        choices = names(file_pairs_list))
+                               choices = names(file_pairs_list))
     })
 
     # Popup while processing
     shiny::showModal(shiny::modalDialog(
-     title = "Processing",
-     "Please wait...",
-     footer = NULL
+      title = "Processing",
+      "Please wait...",
+      footer = NULL
     ))
 
     # list for results
@@ -107,19 +96,20 @@ shiny::shinyServer(function(input, output, session) {
 
     # function for exec run_rfastp
     rfastp_exec <- function(p, x, threads){
-     furrr::future_map(x, ~{
-       p(.x$common_part)
-       run_rfastp(result_dir_parsed, .x, threads)
-        },
-        seed = TRUE, globals = TRUE)
+      furrr::future_map(x, ~{
+        p(.x$common_part)
+        run_rfastp(result_dir_parsed, .x, threads)
+      },
+      seed = TRUE, globals = TRUE)
     }
+
 
     # exec above function
     progressr::withProgressShiny(message = "Processing...",
-      {
-       p <- progressr::progressor(along = names(file_pairs_list))
-       results <- rfastp_exec(p, file_pairs_list, threads)
-    }
+       {
+         p <- progressr::progressor(along = names(file_pairs_list))
+         results <- rfastp_exec(p, file_pairs_list, threads)
+       }
     )
 
     result_list <- extract_values(results)
@@ -154,7 +144,6 @@ shiny::shinyServer(function(input, output, session) {
   read2_after_filtering = shiny::reactive({result_values$result_list[[9]]})
 
 
-
   output$all_samples_summary <- plotly::renderPlotly({
     summary_data <- result_summary()
     tmp <- lapply(names(summary_data), function(sample_name) {
@@ -173,11 +162,10 @@ shiny::shinyServer(function(input, output, session) {
   })
 
 
-
   output$summary <- shiny::renderTable({
     summary_data <- result_summary()
     # req(!is.null(summary_data), nrow(summary_data) > 0)
-    summary_data[[input$selected_sample]] %>% convert_units()
+    summary_data[[input$selected_sample]] %>% convert_units_summary()
   })
 
   output$filtering_result_table <- shiny::renderTable({
