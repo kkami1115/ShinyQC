@@ -80,7 +80,7 @@ extract_filtering_info <- function(youso) {
 #' @param threads Number of threads to use (default: 2)
 #' @return Rfastp result object
 run_rfastp <- function(result_dir_parsed, output_dir, file_pair, threads = 2) {
-  dir.create(output_dir, recursive = TRUE, mode = "0777")
+  dir.create( file.path(output_dir, file_pair$common_part), recursive = TRUE, mode = "0777")
 
   output_fastq <- file.path(output_dir, file_pair$common_part,  paste0("trimmed_", file_pair$common_part))
 
