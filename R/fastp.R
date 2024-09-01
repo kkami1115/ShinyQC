@@ -78,8 +78,7 @@ extract_filtering_info <- function(youso) {
 #' @param file_pair A list containing file pair information
 #' @param threads Number of threads to use (default: 2)
 #' @return Rfastp result object
-run_rfastp <- function(result_dir_parsed, file_pair, threads = 2) {
-  output_dir <- file.path(result_dir_parsed, paste("fastp_dual",format(Sys.Date(), "%Y%m%d"), sep = "_"), file_pair$common_part)
+run_rfastp <- function(result_dir_parsed, output_dir, file_pair, threads = 2) {
   dir.create(output_dir, recursive = TRUE, mode = "0777")
 
   output_fastq <- file.path(output_dir, paste0("trimmed_", file_pair$common_part))
