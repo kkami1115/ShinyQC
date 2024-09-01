@@ -127,24 +127,36 @@ extract_values <- function(results) {
   )
 }
 
+convert_value_with_unit <- function(value) {
+  if (is.numeric(value)) {
+    if (abs(value) >= 1e9) {
+      return(paste0(round(value / 1e9, 2), " G"))
+    } else if (abs(value) >= 1e6) {
+      return(paste0(round(value / 1e6, 2), " M"))
+    } else {
+      return(as.character(value))
+    }
+  } else {
+    return(as.character(value))
+  }
+}
 
-#' convert digits for better summary
+#' convert digits for summary
 #'
 #' @param df summary df
-#' @return digits-converted df
+#' @return digits-modified summary df
 convert_units_summary <- function(df) {
-  # 数値変換と演算を先に行う
-  total_reads_before <- df[df$item == "total_reads", "before_filtering"] / 1e6
-  total_reads_after <- df[df$item == "total_reads", "after_filtering"] / 1e6
+  total_reads_before <- df[df$item == "total_reads", "before_filtering"]
+  total_reads_after <- df[df$item == "total_reads", "after_filtering"]
 
-  total_bases_before <- df[df$item == "total_bases", "before_filtering"] / 1e9
-  total_bases_after <- df[df$item == "total_bases", "after_filtering"] / 1e9
+  total_bases_before <- df[df$item == "total_bases", "before_filtering"]
+  total_bases_after <- df[df$item == "total_bases", "after_filtering"]
 
-  q20_bases_before <- df[df$item == "q20_bases", "before_filtering"] / 1e9
-  q20_bases_after <- df[df$item == "q20_bases", "after_filtering"] / 1e9
+  q20_bases_before <- df[df$item == "q20_bases", "before_filtering"]
+  q20_bases_after <- df[df$item == "q20_bases", "after_filtering"]
 
-  q30_bases_before <- df[df$item == "q30_bases", "before_filtering"] / 1e9
-  q30_bases_after <- df[df$item == "q30_bases", "after_filtering"] / 1e9
+  q30_bases_before <- df[df$item == "q30_bases", "before_filtering"]
+  q30_bases_after <- df[df$item == "q30_bases", "after_filtering"]
 
   q20_rate_before <- df[df$item == "q20_rate", "before_filtering"] * 100
   q20_rate_after <- df[df$item == "q20_rate", "after_filtering"] * 100
@@ -161,11 +173,10 @@ convert_units_summary <- function(df) {
   gc_content_before <- df[df$item == "gc_content", "before_filtering"] * 100
   gc_content_after <- df[df$item == "gc_content", "after_filtering"] * 100
 
-  # 文字列として単位を追加
-  df[df$item == "total_reads", 2:3] <- c(paste0(round(total_reads_before, 2), " M"), paste0(round(total_reads_after, 2), " M"))
-  df[df$item == "total_bases", 2:3] <- c(paste0(round(total_bases_before, 2), " G"), paste0(round(total_bases_after, 2), " G"))
-  df[df$item == "q20_bases", 2:3] <- c(paste0(round(q20_bases_before, 2), " G"), paste0(round(q20_bases_after, 2), " G"))
-  df[df$item == "q30_bases", 2:3] <- c(paste0(round(q30_bases_before, 2), " G"), paste0(round(q30_bases_after, 2), " G"))
+  df[df$item == "total_reads", 2:3] <- c(convert_value_with_unit(total_reads_before), convert_value_with_unit(total_reads_after))
+  df[df$item == "total_bases", 2:3] <- c(convert_value_with_unit(total_bases_before), convert_value_with_unit(total_bases_after))
+  df[df$item == "q20_bases", 2:3] <- c(convert_value_with_unit(q20_bases_before), convert_value_with_unit(q20_bases_after))
+  df[df$item == "q30_bases", 2:3] <- c(convert_value_with_unit(q30_bases_before), convert_value_with_unit(q30_bases_after))
   df[df$item == "q20_rate", 2:3] <- c(paste0(round(q20_rate_before, 2), "%"), paste0(round(q20_rate_after, 2), "%"))
   df[df$item == "q30_rate", 2:3] <- c(paste0(round(q30_rate_before, 2), "%"), paste0(round(q30_rate_after, 2), "%"))
   df[df$item == "read1_mean_length", 2:3] <- c(paste0(read1_length_before, " bp"), paste0(read1_length_after, " bp"))
@@ -175,4 +186,25 @@ convert_units_summary <- function(df) {
   return(df)
 }
 
+
+#' convert digits for filtering_result
+#'
+#' @param df filtering_result df
+#' @return digits-modified filtering_result df
+convert_units_filtering_result <- function(df) {
+  passed_filter_reads <- df[df$rowname == "passed_filter_reads", "V1"]
+  low_quality_reads <- df[df$rowname == "low_quality_reads", "V1"]
+  too_many_N_reads <- df[df$rowname == "too_many_N_reads", "V1"]
+  too_short_reads	 <- df[df$rowname == "too_short_reads", "V1"]
+  too_long_reads <- df[df$rowname == "too_long_reads", "V1"]
+
+  df[df$item == "passed_filter_reads", 2] <- convert_value_with_unit(passed_filter_reads)
+  df[df$item == "low_quality_reads", 2] <- convert_value_with_unit(low_quality_reads)
+  df[df$item == "too_many_N_reads", 2] <- convert_value_with_unit(too_many_N_reads)
+  df[df$item == "too_short_reads", 2] <- convert_value_with_unit(too_short_reads)
+  df[df$item == "too_long_reads", 2] <- round(too_long_reads, 0)
+
+  colnames(df)  = c("item", "value")
+  return(df)
+}
 
