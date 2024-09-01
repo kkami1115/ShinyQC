@@ -58,6 +58,7 @@ shiny::shinyServer(function(input, output, session) {
     # Set result directories
     fastq_dir_parsed <- shinyFiles::parseDirPath(volumes,input$fastq_dir)
     result_dir_parsed <- shinyFiles::parseDirPath(volumes, input$result_dir)
+    output_dir <- file.path(result_dir_parsed, paste("fastp_dual",format(Sys.Date(), "%Y%m%d"), sep = "_"), file_pair$common_part)
 
     # Validate input
     if (is.null(fastq_dir_parsed) || is.null(result_dir_parsed)) {
