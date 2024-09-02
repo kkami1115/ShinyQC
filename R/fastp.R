@@ -109,7 +109,8 @@ extract_values <- function(results) {
         as.data.frame() %>%
         t() %>%
         as.data.frame() %>%
-        tibble::rownames_to_column()
+        tibble::rownames_to_column() %>%
+        mutate(V1 = as.numeric(V1))
     }),
     duplication = lapply(results, function(x) x$duplication),
     insert_size = lapply(results, function(x) x$insert_size),
@@ -192,11 +193,11 @@ convert_units_summary <- function(df) {
 #' @param df filtering_result df
 #' @return digits-modified filtering_result df
 convert_units_filtering_result <- function(df) {
-  passed_filter_reads <- df[df$rowname == "passed_filter_reads", "V1"]
-  low_quality_reads <- df[df$rowname == "low_quality_reads", "V1"]
-  too_many_N_reads <- df[df$rowname == "too_many_N_reads", "V1"]
-  too_short_reads	 <- df[df$rowname == "too_short_reads", "V1"]
-  too_long_reads <- df[df$rowname == "too_long_reads", "V1"]
+  passed_filter_reads <- round(df[df$rowname == "passed_filter_reads", "V1"])
+  low_quality_reads <- round(df[df$rowname == "low_quality_reads", "V1"])
+  too_many_N_reads <- round(df[df$rowname == "too_many_N_reads", "V1"])
+  too_short_reads	 <- round(df[df$rowname == "too_short_reads", "V1"])
+  too_long_reads <- round(df[df$rowname == "too_long_reads", "V1"])
 
   df[df$item == "passed_filter_reads", 2] <- convert_value_with_unit(passed_filter_reads)
   df[df$item == "low_quality_reads", 2] <- convert_value_with_unit(low_quality_reads)

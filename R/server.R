@@ -173,7 +173,7 @@ shiny::shinyServer(function(input, output, session) {
   output$filtering_result_table <- shiny::renderTable({
     filtering_data <- filtering_result()
     req(filtering_data)
-    filtering_data[[input$selected_sample]] %>% convert_units_filtering_result()
+    filtering_data[[input$selected_sample]]  %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
 
 
@@ -205,7 +205,7 @@ shiny::shinyServer(function(input, output, session) {
     req(mean_gc_data)
     p <- mean_gc_data %>%
       as.data.frame() %>%
-      mutate(across(everything(), ~ . * 100 ))
+      mutate(across(everything(), ~ . * 100 )) %>%
       tibble::rowid_to_column() %>%
       dplyr::rename(c("x"="rowid","y"=".")) %>%
       ggplot2::ggplot(aes(x=x,y=y)) +
@@ -243,13 +243,13 @@ shiny::shinyServer(function(input, output, session) {
   # elements of adapter cutting
   output$adapter_cutting <- shiny::renderTable({
     req(adapter_cutting()[[input$selected_sample]])
-    adapter_cutting()[[input$selected_sample]]
+    adapter_cutting()[[input$selected_sample]] %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
 
 
   # elements of read1 before filtering
   output$read1_before_filtering_main <- shiny::renderTable({
-    read1_before_filtering()[[input$selected_sample]]$main %>% as.data.frame(lapply(., function(col) {sapply(col, convert_value_with_unit) }))
+    read1_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
   output$read1_before_filtering_qualitycurves <- plotly::renderPlotly({
     req(read1_before_filtering()[[input$selected_sample]]$quality_curves )
@@ -279,7 +279,7 @@ shiny::shinyServer(function(input, output, session) {
 
   # elements of read1 after filtering
   output$read1_after_filtering_main <- shiny::renderTable({
-    read1_after_filtering()[[input$selected_sample]]$main %>% as.data.frame(lapply(., function(col) {sapply(col, convert_value_with_unit) }))
+    read1_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
   output$read1_after_filtering_qualitycurves <- plotly::renderPlotly({
     req(read1_after_filtering()[[input$selected_sample]]$quality_curves)
@@ -309,7 +309,7 @@ shiny::shinyServer(function(input, output, session) {
 
   # elements of read2 before filtering
   output$read2_before_filtering_main <- shiny::renderTable({
-    read2_before_filtering()[[input$selected_sample]]$main %>% as.data.frame(lapply(., function(col) {sapply(col, convert_value_with_unit) }))
+    read2_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
   output$read2_before_filtering_qualitycurves <- plotly::renderPlotly({
     req(read2_before_filtering()[[input$selected_sample]]$quality_curves)
@@ -339,7 +339,7 @@ shiny::shinyServer(function(input, output, session) {
 
   # elements of read2 after filtering
   output$read2_after_filtering_main <- shiny::renderTable({
-    read2_after_filtering()[[input$selected_sample]]$main %>% as.data.frame(lapply(., function(col) {sapply(col, convert_value_with_unit) }))
+    read2_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
   })
   output$read2_after_filtering_qualitycurves <- plotly::renderPlotly({
     req(read2_after_filtering()[[input$selected_sample]]$quality_curves)
