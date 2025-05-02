@@ -22,7 +22,7 @@ shiny::shinyServer(function(input, output, session) {
 
   # display
   output$fastq_dir <- shiny::renderPrint({
-    if (is.integer(input$fastq_dir)) {
+    if (length(parseDirPath(volumes, input$fastq_dir)) == 0) {
       cat("No directory have been selected (fastq_dir)")
     } else {
       shinyFiles::parseDirPath(volumes, input$fastq_dir)
@@ -30,7 +30,7 @@ shiny::shinyServer(function(input, output, session) {
   })
 
   output$result_dir <- shiny::renderPrint({
-    if (is.integer(input$result_dir)) {
+    if (length(parseDirPath(volumes, input$fastq_dir)) == 0) {
       cat("No directory has been selected (result_dir)")
     } else {
       shinyFiles::parseDirPath(volumes, input$result_dir)
@@ -47,12 +47,16 @@ shiny::shinyServer(function(input, output, session) {
     shinyjs::disable("tabs")
 
     threads = as.numeric(input$threads)
+    if(is.na(threads) || threads <= 0) {
+      shiny::showNotification("Please provide a positive value for threads.", type = "error", closeButton = TRUE)
+      return()
+    }
 
     # Set plan for asynchronous processing
     if(input$multi_strategy == "sequential"){
       future::plan(future::sequential())   # Process one file at a time
     }else if(input$multi_strategy == "multisession"){
-      future::plan(future::multisession(), workers = (parallel::detectCores() / threads))  # MaxThreads/2 since multiple sessions are launched and rfastp runs on 2 threads.
+      future::plan(future::multisession(), workers = ( (parallel::detectCores() - 1 ) / threads))  # MaxThreads/threads since multiple sessions are launched and rfastp runs on specified threads.
     }
 
     # Set result directories
@@ -61,10 +65,16 @@ shiny::shinyServer(function(input, output, session) {
     output_dir <- file.path(result_dir_parsed, paste("fastp_dual",format(Sys.Date(), "%Y%m%d"), sep = "_") )
 
     # Validate input
-    if (is.null(fastq_dir_parsed) || is.null(result_dir_parsed)) {
-      shiny::showNotification("Please select a valid directory.", type = "error", closeButton = TRUE)
+    if (is.null(fastq_dir_parsed)) {
+      shiny::showNotification("Please select a valid fastq directory.", type = "error", closeButton = TRUE)
       return()
     }
+
+    if (is.null(result_dir_parsed)) {
+      shiny::showNotification("Please select a valid result directory.", type = "error", closeButton = TRUE)
+      return()
+    }
+
     # Get fastq files fullpath and check existence
     fastq_paths <- list.files(fastq_dir_parsed, pattern = "\\.fastq\\.gz$|\\.fastq$|\\.fq$", full.names = TRUE, recursive = TRUE)
     if (length(fastq_paths) == 0) {
@@ -107,11 +117,16 @@ shiny::shinyServer(function(input, output, session) {
 
     # exec above function
     progressr::withProgressShiny(message = "Processing...",
-       {
-         p <- progressr::progressor(along = names(file_pairs_list))
-         results <- rfastp_exec(p, file_pairs_list, threads)
-       }
+                                 {
+                                   p <- progressr::progressor(along = names(file_pairs_list))
+                                   #results <- rfastp_exec(p, file_pairs_list, threads) # Old
+                                   results <- furrr::future_map(file_pairs_list, ~{
+                                     p(.x$common_part)
+                                     run_rfastp(result_dir_parsed, output_dir, .x, threads)
+                                   }, .options = .options)
+                                 }
     )
+
 
     result_list <- extract_values(results)
     result_values$result_list <- result_list
@@ -205,7 +220,7 @@ shiny::shinyServer(function(input, output, session) {
     req(mean_gc_data)
     p <- mean_gc_data %>%
       as.data.frame() %>%
-      mutate(across(everything(), ~ . * 100 )) %>%
+      mutate(across(where(is.numeric), ~ . * 100 )) %>%
       tibble::rowid_to_column() %>%
       dplyr::rename(c("x"="rowid","y"=".")) %>%
       ggplot2::ggplot(aes(x=x,y=y)) +
@@ -253,7 +268,7 @@ shiny::shinyServer(function(input, output, session) {
   })
   output$read1_before_filtering_qualitycurves <- plotly::renderPlotly({
     req(read1_before_filtering()[[input$selected_sample]]$quality_curves )
-        tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>%
+    tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>%
       tidyr::pivot_longer(cols = everything())
     p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
