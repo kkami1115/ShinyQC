@@ -41,12 +41,14 @@ shiny::shinyServer(function(input, output, session) {
   ################## Rfastp exec section ############################
   # handles results value dynamically
   result_values <- shiny::reactiveValues(result_list = NULL)
+  processing_future <- shiny::reactiveVal(NULL)
 
 
   shiny::observeEvent(input$runButton, {
     shinyjs::disable("tabs")
+    shinyjs::show("cancelButton")
 
-    threads = as.numeric(input$threads)
+    threads <- as.numeric(input$threads)
 
     # Set plan for asynchronous processing
     if(input$multi_strategy == "sequential"){
@@ -92,43 +94,62 @@ shiny::shinyServer(function(input, output, session) {
       footer = NULL
     ))
 
-    # list for results
-    results <- list()
-
-    # function for exec run_rfastp
-    rfastp_exec <- function(p, x, threads){
-      furrr::future_map(x, ~{
-        p(.x$common_part)
-        run_rfastp(result_dir_parsed, output_dir, .x, threads)
-      },
-      seed = TRUE, globals = TRUE)
+    # function for exec run_rfastp with progress updates
+    rfastp_exec <- function(p, x, threads) {
+      total <- length(x)
+      furrr::future_imap(x, ~{
+        result <- run_rfastp(result_dir_parsed, output_dir, .x, threads)
+        p(message = sprintf("Processed %d/%d", .y, total))
+        result
+      }, seed = TRUE, globals = TRUE)
     }
 
+    fut <- future::future({
+      progressr::withProgressShiny(message = "Processing...", {
+        p <- progressr::progressor(steps = length(file_pairs_list))
+        rfastp_exec(p, file_pairs_list, threads)
+      })
+    })
 
-    # exec above function
-    progressr::withProgressShiny(message = "Processing...",
-       {
-         p <- progressr::progressor(along = names(file_pairs_list))
-         results <- rfastp_exec(p, file_pairs_list, threads)
-       }
-    )
+    processing_future(fut)
 
-    result_list <- extract_values(results)
-    result_values$result_list <- result_list
+    promises::as.promise(fut) %...>% (function(results) {
+      result_list <- extract_values(results)
+      result_values$result_list <- result_list
+      processing_future(NULL)
+      shinyjs::hide("cancelButton")
+      shinyjs::enable("tabs")
+      shiny::removeModal()
+      if (!is.null(result_list)) {
+        shiny::showModal(shiny::modalDialog(
+          title = "Complete",
+          "Rfastp processing is complete.",
+          easyClose = TRUE,
+          footer = shiny::modalButton("Close")
+        ))
+      }
+    }) %...!% (function(err) {
+      processing_future(NULL)
+      shinyjs::hide("cancelButton")
+      shinyjs::enable("tabs")
+      shiny::removeModal()
+      if (!grepl("cancel", conditionMessage(err), ignore.case = TRUE)) {
+        shiny::showNotification("Processing failed.", type = "error", closeButton = TRUE)
+      }
+    })
 
-    # enable tabs
-    shinyjs::enable("tabs")
+  })
 
-    if (!is.null(result_list)){
-      # Notification for complete
-      shiny::showModal(shiny::modalDialog(
-        title = "Complete",
-        "Rfastp processing is complete.",
-        easyClose = TRUE,
-        footer = shiny::modalButton("Close")
-      ))
+  shiny::observeEvent(input$cancelButton, {
+    fut <- processing_future()
+    if (!is.null(fut)) {
+      future::cancel(fut)
+      processing_future(NULL)
+      shinyjs::hide("cancelButton")
+      shinyjs::enable("tabs")
+      shiny::removeModal()
+      shiny::showNotification("Processing cancelled.", type = "message")
     }
-
   })
 
 
