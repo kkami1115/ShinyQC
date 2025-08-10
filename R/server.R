@@ -44,16 +44,14 @@ shiny::shinyServer(function(input, output, session) {
                                         process_future = NULL)
 
 
-  shiny::observeEvent(input$runButton, {
-    shinyjs::disable("tabs")
-    shinyjs::show("cancelButton")
+    shiny::observeEvent(input$runButton, {
+      shinyjs::disable("tabs")
 
-    threads = as.numeric(input$threads)
-    if(is.na(threads) || threads <= 0) {
-      shiny::showNotification("Please provide a positive value for threads.", type = "error", closeButton = TRUE)
-      shinyjs::hide("cancelButton")
-      return()
-    }
+      threads = as.numeric(input$threads)
+      if(is.na(threads) || threads <= 0) {
+        shiny::showNotification("Please provide a positive value for threads.", type = "error", closeButton = TRUE)
+        return()
+      }
 
     # Set plan for asynchronous processing
     if(input$multi_strategy == "sequential"){
@@ -98,11 +96,15 @@ shiny::shinyServer(function(input, output, session) {
                                choices = names(file_pairs_list))
     })
 
-    # Popup while processing
+    # Popup while processing with cancel option
     shiny::showModal(shiny::modalDialog(
       title = "Processing",
       "Please wait...",
-      footer = NULL
+      footer = shiny::actionButton(
+        "cancelButton",
+        "Cancel Processing",
+        class = "btn-danger"
+      )
     ))
 
     result_values$process_future <- future::future({
@@ -111,26 +113,24 @@ shiny::shinyServer(function(input, output, session) {
       }, .options = .options)
     })
 
-    promises::as.promise(result_values$process_future) %...>% (function(results){
-      result_list <- extract_values(results)
-      result_values$result_list <- result_list
-      shinyjs::enable("tabs")
-      shinyjs::hide("cancelButton")
-      shiny::removeModal()
-      if (!is.null(result_list)){
-        shiny::showModal(shiny::modalDialog(
-          title = "Complete",
-          "Rfastp processing is complete.",
-          easyClose = TRUE,
-          footer = shiny::modalButton("Close")
-        ))
-      }
-    }) %...!% (function(err){
-      shinyjs::enable("tabs")
-      shinyjs::hide("cancelButton")
-      shiny::removeModal()
-      shiny::showNotification("Processing cancelled.", type = "warning", closeButton = TRUE)
-    })
+      promises::as.promise(result_values$process_future) %...>% (function(results){
+        result_list <- extract_values(results)
+        result_values$result_list <- result_list
+        shinyjs::enable("tabs")
+        shiny::removeModal()
+        if (!is.null(result_list)){
+          shiny::showModal(shiny::modalDialog(
+            title = "Complete",
+            "Rfastp processing is complete.",
+            easyClose = TRUE,
+            footer = shiny::modalButton("Close")
+          ))
+        }
+      }) %...!% (function(err){
+        shinyjs::enable("tabs")
+        shiny::removeModal()
+        shiny::showNotification("Processing cancelled.", type = "warning", closeButton = TRUE)
+      })
 
   })
 

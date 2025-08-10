@@ -18,19 +18,11 @@ shiny::fluidPage(
                    shinyFiles::shinyDirButton("fastq_dir", "Fastq Directory", "Select a directory containing fastq files"),
                    shiny::verbatimTextOutput("fastq_dir"),
                    shinyFiles::shinyDirButton("result_dir", "Result Directory", "Select a directory to save the results"),
-                   shiny::verbatimTextOutput("result_dir"),
-                   shiny::textInput("file_pattern", "File Pattern", value = "_[12]" ),
-                   shiny::actionButton("runButton", "Run Rfastp (Paired-end Mode)"),
-                   shinyjs::hidden(
-                     shiny::actionButton(
-                       "cancelButton",
-                       "Cancel Processing",
-                       class = "btn-danger"
-                     )
-                   )
-                   #,
-                   # Area of logs
-                   # uiOutput("dynamicSizeLogOutput")
+                    shiny::verbatimTextOutput("result_dir"),
+                    shiny::textInput("file_pattern", "File Pattern", value = "_[12]" ),
+                    shiny::actionButton("runButton", "Run Rfastp (Paired-end Mode)")
+                    # Area of logs
+                    # uiOutput("dynamicSizeLogOutput")
     ),
 
     # Overview tab
