@@ -13,6 +13,7 @@ When all files have been processed, the contents of the Overview and Visualize p
 
 # ToDo
 - Match the visualize per sample with the actual html (the specification is slightly different now)
-- Make duplicate rate visible in Overview
+- Better Notifications
 - Add settings for arguments passed to `Rfastp` in the Settings tab
-- add a stop button during processing
+- Add a stop button during processing
+- Read previous results
