@@ -4,9 +4,8 @@
 
 theme <- bslib::bs_theme(version = 4)
 
-shinyjs::useShinyjs()
-
 shiny::fluidPage(
+  shinyjs::useShinyjs(),
   shiny::titlePanel("Fastp execution and visualization"),
 
   # tabset panel
