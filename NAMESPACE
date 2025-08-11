@@ -3,4 +3,6 @@
 export("%>%")
 export(launch_app)
 importFrom(magrittr,"%>%")
+importFrom(promises,"%...!%")
+importFrom(promises,"%...>%")
 importFrom(tibble,tibble)
