@@ -50,6 +50,7 @@ rsconnect/
 
 # renv local files
 renv/*
+!renv/activate.R
 
 # Rstudio Project
 *.Rproj
