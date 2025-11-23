@@ -30,6 +30,138 @@ create_file_pairs_list <- function(paths, pattern) {
   return(file_pairs_list)
 }
 
+# create_file_pairs_list <- function(paths, pattern) {
+#   df <- tibble(path = paths,
+#                common_part = basename(gsub(paste0(pattern, "\\.fastq\\.gz"), "", paths)))
+#   pairs <- df %>% group_by(common_part) %>% filter(n() == 2) %>%
+#     summarise(file1 = first(path), file2 = last(path), .groups = "drop")
+#   setNames(
+#     purrr::pmap(list(pairs$common_part, pairs$file1, pairs$file2),
+#                 ~list(common_part = ..1, file1 = ..2, file2 = ..3)),
+#     pairs$common_part
+#   )
+# }
+
+
+
+
+#' Fix integer overflow in summary dataframe
+#'
+#' @param df A dataframe with columns 'item' and 'value'
+#' @param is_before Boolean, true if this is before_filtering data
+#' @param target_mean Numeric, target mean length (used for after_filtering)
+#' @return A dataframe with corrected values
+fix_overflow_df <- function(df, is_before = TRUE, target_mean = NULL) {
+  # Helper to get value
+  get_val <- function(k) as.numeric(df[df$item == k, 2])
+  set_val <- function(k, v) df[df$item == k, 2] <<- v
+  
+  total_reads <- get_val("total_reads")
+  total_bases <- get_val("total_bases")
+  
+  # Fix total_bases
+  # Initial correction to positive range [0, 2^32] if negative
+  if (total_bases < 0) total_bases <- total_bases + 2^32
+  
+  current_mean <- total_bases / total_reads
+  
+  if (is_before) {
+    # Match against standard NGS read lengths
+    standards <- c(36, 50, 75, 100, 125, 150, 200, 250, 300)
+    best_k <- 0
+    min_diff <- Inf
+    
+    # Try adding k * 2^32 (k=0, 1, 2...)
+    for (k in 0:5) {
+      test_bases <- total_bases + k * 2^32
+      test_mean <- test_bases / total_reads
+      
+      # Find distance to nearest standard
+      diff <- min(abs(test_mean - standards))
+      
+      if (diff < min_diff) {
+        min_diff <- diff
+        best_k <- k
+      }
+    }
+    total_bases <- total_bases + best_k * 2^32
+    
+  } else {
+    # For after_filtering, aim for mean length <= target_mean but close to it
+    # Trimming shouldn't drastically reduce length usually, but can.
+    # We assume mean_length_after <= mean_length_before
+    
+    if (!is.null(target_mean)) {
+      best_k <- 0
+      min_diff <- Inf
+      
+      for (k in 0:5) {
+        test_bases <- total_bases + k * 2^32
+        test_mean <- test_bases / total_reads
+        
+        if (test_mean <= target_mean + 5) { # Allow slight tolerance
+           diff <- target_mean - test_mean
+           if (diff < min_diff) {
+             min_diff <- diff
+             best_k <- k
+           }
+        }
+      }
+      total_bases <- total_bases + best_k * 2^32
+    }
+  }
+  set_val("total_bases", total_bases)
+  
+  # Fix q20, q30 bases
+  # They should be <= total_bases. 
+  # If negative, add 2^32.
+  # Then add 2^32 until reasonable ratio?
+  # Assumption: Q20/Q30 rate is usually high (>50%).
+  # If val / total_bases < 0.3 (and we added 2^32), maybe add another?
+  # But simpler: ensure val <= total_bases.
+  # And maximize val given val <= total_bases?
+  
+  for (k in c("q20_bases", "q30_bases")) {
+    val <- get_val(k)
+    if (val < 0) val <- val + 2^32
+    
+    # Try adding 2^32 as long as it stays <= total_bases
+    # This maximizes the Q-score bases count within the total_bases limit
+    while ( (val + 2^32) <= total_bases ) {
+      val <- val + 2^32
+    }
+    set_val(k, val)
+  }
+  
+  # Recalculate rates
+  q20_bases <- get_val("q20_bases")
+  q30_bases <- get_val("q30_bases")
+  set_val("q20_rate", q20_bases / total_bases)
+  set_val("q30_rate", q30_bases / total_bases)
+  
+  # Fix mean lengths if negative or suspicious
+  r1_len <- get_val("read1_mean_length")
+  r2_len <- get_val("read2_mean_length")
+  
+  # If we fixed total_bases, we should probably update mean lengths to be consistent
+  # especially if they were negative.
+  # Even if positive, they might be wrong if they overflowed differently?
+  # But usually we trust our total_bases fix more.
+  avg_len <- total_bases / total_reads
+  
+  if (r1_len < 0 || r2_len < 0) {
+    set_val("read1_mean_length", avg_len)
+    set_val("read2_mean_length", avg_len)
+  } else {
+    # If reported length is very different from calculated, maybe update?
+    # Let's update if difference is large (> 10bp)
+    if (abs(r1_len - avg_len) > 10) set_val("read1_mean_length", avg_len)
+    if (abs(r2_len - avg_len) > 10) set_val("read2_mean_length", avg_len)
+  }
+  
+  return(df)
+}
+
 #' Extract summary parts
 #'
 #' @param youso A list containing summary information
@@ -40,18 +172,31 @@ extract_summary_parts <- function(youso) {
     t() %>%
     as.data.frame() %>%
     tibble::rownames_to_column()
+  
+  colnames(before_filtering_df) <- c("item", "value")
+  before_filtering_df <- fix_overflow_df(before_filtering_df, is_before = TRUE)
+  
+  # Get target mean from fixed before df
+  tr_b <- as.numeric(before_filtering_df[before_filtering_df$item == "total_reads", 2])
+  tb_b <- as.numeric(before_filtering_df[before_filtering_df$item == "total_bases", 2])
+  target_mean <- tb_b / tr_b
+  
+  colnames(before_filtering_df) <- c("item", "before_filtering")
 
   after_filtering_df <- youso$summary$after_filtering %>%
     as.data.frame() %>%
     t() %>%
     as.data.frame() %>%
     tibble::rownames_to_column()
-
-  colnames(before_filtering_df) <- c("item", "before_filtering")
+  
+  colnames(after_filtering_df) <- c("item", "value")
+  after_filtering_df <- fix_overflow_df(after_filtering_df, is_before = FALSE, target_mean = target_mean)
   colnames(after_filtering_df) <- c("item", "after_filtering")
 
   dplyr::inner_join(before_filtering_df, after_filtering_df, by = "item")
 }
+
+
 
 #' Extract filtering information
 #'
@@ -74,12 +219,11 @@ extract_filtering_info <- function(youso) {
 
 #' Run Rfastp
 #'
-#' @param result_dir_parsed Parsed result directory path
 #' @param output_dir  output directory
 #' @param file_pair A list containing file pair information
 #' @param threads Number of threads to use (default: 2)
 #' @return Rfastp result object
-run_rfastp <- function(result_dir_parsed, output_dir, file_pair, threads = 2) {
+run_rfastp <- function(output_dir, file_pair, threads = 2) {
   dir.create( file.path(output_dir, file_pair$common_part), recursive = TRUE, mode = "0777")
 
   output_fastq <- file.path(output_dir, file_pair$common_part,  paste0("trimmed_", file_pair$common_part))
@@ -94,7 +238,6 @@ run_rfastp <- function(result_dir_parsed, output_dir, file_pair, threads = 2) {
 
   return(result)
 }
-
 
 
 #' Extract values and data frames from Rfastp results
@@ -127,6 +270,25 @@ extract_values <- function(results) {
     read2_after_filtering = lapply(results, function(x) extract_filtering_info(x$read2_after_filtering))
   )
 }
+# extract_values <- function(results) {
+#   list(
+#     summary = purrr::map(results, extract_summary_parts),
+#     filtering_result = purrr::map(results,
+#                                   ~ .x$filtering_result %>% as.data.frame() %>% t() %>% as.data.frame() %>%
+#                                     tibble::rownames_to_column() %>% dplyr::mutate(V1 = as.numeric(V1))),
+#     duplication = purrr::map(results, "duplication"),
+#     insert_size = purrr::map(results, "insert_size"),
+#     adapter_cutting = purrr::map(results,
+#                                  ~ .x$adapter_cutting %>% as.data.frame() %>% t() %>% as.data.frame() %>%
+#                                    tibble::rownames_to_column()),
+#     read1_before_filtering = purrr::map(results, ~ extract_filtering_info(.x$read1_before_filtering)),
+#     read2_before_filtering = purrr::map(results, ~ extract_filtering_info(.x$read2_before_filtering)),
+#     read1_after_filtering  = purrr::map(results, ~ extract_filtering_info(.x$read1_after_filtering)),
+#     read2_after_filtering  = purrr::map(results, ~ extract_filtering_info(.x$read2_after_filtering))
+#   )
+# }
+
+
 
 convert_value_with_unit <- function(value) {
   if (is.numeric(value)) {
@@ -141,6 +303,8 @@ convert_value_with_unit <- function(value) {
     return(as.character(value))
   }
 }
+
+
 
 #' convert digits for summary
 #'
@@ -187,6 +351,25 @@ convert_units_summary <- function(df) {
   return(df)
 }
 
+# convert_units_summary <- function(df) {
+#   df %>%
+#     mutate(
+#       before_filtering = case_when(
+#         item %in% c("total_reads","total_bases","q20_bases","q30_bases") ~ convert_value_with_unit(before_filtering),
+#         item %in% c("q20_rate","q30_rate","gc_content") ~ paste0(round(before_filtering * 100, 2), "%"),
+#         item %in% c("read1_mean_length","read2_mean_length") ~ paste0(round(before_filtering), " bp"),
+#         TRUE ~ as.character(before_filtering)
+#       ),
+#       after_filtering = case_when(
+#         item %in% c("total_reads","total_bases","q20_bases","q30_bases") ~ convert_value_with_unit(after_filtering),
+#         item %in% c("q20_rate","q30_rate","gc_content") ~ paste0(round(after_filtering * 100, 2), "%"),
+#         item %in% c("read1_mean_length","read2_mean_length") ~ paste0(round(after_filtering), " bp"),
+#         TRUE ~ as.character(after_filtering)
+#       )
+#     )
+# }
+
+
 
 #' convert digits for filtering_result
 #'
@@ -209,3 +392,15 @@ convert_units_filtering_result <- function(df) {
   return(df)
 }
 
+# convert_units_filtering_result <- function(df) {
+#   df %>%
+#     mutate(
+#       value = case_when(
+#         rowname %in% c("passed_filter_reads","low_quality_reads","too_many_N_reads","too_short_reads") ~ convert_value_with_unit(round(V1)),
+#         rowname == "too_long_reads" ~ as.character(round(V1,0)),
+#         TRUE ~ as.character(V1)
+#       )
+#     ) %>%
+#     rename(item = rowname) %>%
+#     select(item, value)
+# }
