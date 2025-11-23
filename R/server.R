@@ -56,7 +56,13 @@ shiny::shinyServer(function(input, output, session) {
     if(input$multi_strategy == "sequential"){
       future::plan(future::sequential())   # Process one file at a time
     }else if(input$multi_strategy == "multisession"){
-      future::plan(future::multisession(), workers = ( (parallel::detectCores() - 1 ) / threads))  # MaxThreads/threads since multiple sessions are launched and rfastp runs on specified threads.
+      max_total = as.numeric(input$max_total_threads)
+      if(is.na(max_total) || max_total <= 0) max_total <- parallel::detectCores() - 1
+      
+      n_workers = floor(max_total / threads)
+      if(n_workers < 1) n_workers <- 1
+      
+      future::plan(future::multisession(), workers = n_workers)
     }
 
     # Set result directories
@@ -122,7 +128,8 @@ shiny::shinyServer(function(input, output, session) {
                                    #results <- rfastp_exec(p, file_pairs_list, threads) # Old
                                    results <- furrr::future_map(file_pairs_list, ~{
                                      p(.x$common_part)
-                                     run_rfastp(result_dir_parsed, output_dir, .x, threads)
+                                     # run_rfastp(result_dir_parsed, output_dir, .x, threads)
+                                     run_rfastp( output_dir, .x, threads)
                                    }, .options = .options)
                                  }
     )
@@ -171,34 +178,39 @@ shiny::shinyServer(function(input, output, session) {
     }) %>% dplyr::bind_rows() %>%
       tidyr::pivot_longer(cols = c("before_filtering", "after_filtering"))
     tmp$name =  factor(tmp$name, levels = c("before_filtering", "after_filtering"))
-
-    p <- ggplot2::ggplot(tmp, aes(x=sample, y=value, fill=name)) +
+    
+    p <- ggplot2::ggplot(tmp, aes(x = sample, y = value, fill = name)) +
       ggplot2::geom_bar(stat = "identity", position = position_dodge()) +
-      ggplot2::scale_fill_manual(values = c("before_filtering" = "blue", "after_filtering" = "red"))
+      ggplot2::scale_fill_manual(values = c(
+        "before_filtering" = "blue",
+        "after_filtering" = "red"
+      ))
     p %>% plotly::ggplotly()
   })
-
-
+  
+  
   output$summary <- shiny::renderTable({
     summary_data <- result_summary()
     req(summary_data)
     summary_data[[input$selected_sample]] %>% convert_units_summary()
   })
-
+  
   output$filtering_result_table <- shiny::renderTable({
     filtering_data <- filtering_result()
     req(filtering_data)
-    filtering_data[[input$selected_sample]]  %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    filtering_data[[input$selected_sample]]  %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
-
-
+  
+  
   # elements of duplicate rates
   output$duplication_rate <- shiny::renderText({
     rate <- duplication()[[input$selected_sample]]$rate
     req(rate)
     paste("duplicate rate:", round(rate * 100 , digits = 2), " %")
   })
-
+  
   output$duplication_histogram <- plotly::renderPlotly({
     histogram_data <- duplication()[[input$selected_sample]]$histogram
     # barplot(histogram_data, xlab="Duplication Level", ylab="Read percent (%)")
@@ -206,31 +218,31 @@ shiny::shinyServer(function(input, output, session) {
     p <- histogram_data %>%
       as.data.frame() %>%
       tibble::rowid_to_column() %>%
-      dplyr::rename(c("x"="rowid","y"=".")) %>%
-      ggplot2::ggplot(aes(x=x,y=y, group=x)) +
+      dplyr::rename(c("x" = "rowid", "y" = ".")) %>%
+      ggplot2::ggplot(aes(x = x, y = y, group = x)) +
       ggplot2::geom_bar(stat = "identity") +
       ggplot2::xlab("Duplication Level") +
       ggplot2::ylab("Read Count (raw)")
     p %>% plotly::ggplotly()
   })
-
+  
   output$duplication_mean_gc <- plotly::renderPlotly({
     mean_gc_data <- duplication()[[input$selected_sample]]$mean_gc
     # plot(mean_gc_data, type='o', col='blue', main="Mean GC Content", xlab="Position", ylab="Mean GC")
     req(mean_gc_data)
     p <- mean_gc_data %>%
       as.data.frame() %>%
-      mutate(across(where(is.numeric), ~ . * 100 )) %>%
+      mutate(across(where(is.numeric), ~ . * 100)) %>%
       tibble::rowid_to_column() %>%
-      dplyr::rename(c("x"="rowid","y"=".")) %>%
-      ggplot2::ggplot(aes(x=x,y=y)) +
+      dplyr::rename(c("x" = "rowid", "y" = ".")) %>%
+      ggplot2::ggplot(aes(x = x, y = y)) +
       ggplot2::geom_line() +
       ggplot2::xlab("Duplication Level") +
       ggplot2::ylab("Mean GC Ratio (%)")
     p %>% plotly::ggplotly()
   })
-
-
+  
+  
   # elements of insert size
   output$insert_size_peak <- shiny::renderText({
     peak <- insert_size()[[input$selected_sample]]$peak
@@ -240,7 +252,7 @@ shiny::shinyServer(function(input, output, session) {
   output$insert_size_unknown <- shiny::renderText({
     unknown <- insert_size()[[input$selected_sample]]$unknown
     req(unknown)
-    paste("insert size unknown:", unknown %>% convert_value_with_unit() )
+    paste("insert size unknown:", unknown %>% convert_value_with_unit())
   })
   output$insert_size_histogram <- plotly::renderPlotly({
     insert_size_histogram <- insert_size()[[input$selected_sample]]$histogram
@@ -249,65 +261,87 @@ shiny::shinyServer(function(input, output, session) {
     p <- insert_size_histogram %>%
       as.data.frame() %>%
       tibble::rowid_to_column() %>%
-      dplyr::rename(c("x"="rowid","y"=".")) %>%
-      ggplot2::ggplot(aes(x=x,y=y, group=x)) + ggplot2::geom_bar(stat = "identity")
+      dplyr::rename(c("x" = "rowid", "y" = ".")) %>%
+      ggplot2::ggplot(aes(x = x, y = y, group = x)) + ggplot2::geom_bar(stat = "identity")
     p %>% plotly::ggplotly()
   })
-
-
+  
+  
   # elements of adapter cutting
   output$adapter_cutting <- shiny::renderTable({
     req(adapter_cutting()[[input$selected_sample]])
-    adapter_cutting()[[input$selected_sample]] %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    adapter_cutting()[[input$selected_sample]] %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
-
-
+  
+  
   # elements of read1 before filtering
   output$read1_before_filtering_main <- shiny::renderTable({
-    read1_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    read1_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
   output$read1_before_filtering_qualitycurves <- plotly::renderPlotly({
-    req(read1_before_filtering()[[input$selected_sample]]$quality_curves )
+    req(read1_before_filtering()[[input$selected_sample]]$quality_curves)
     tmp <- read1_before_filtering()[[input$selected_sample]]$quality_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_before_filtering_contentcurves <- plotly::renderPlotly({
-    req(read1_before_filtering()[[input$selected_sample]]$content_curves )
+    req(read1_before_filtering()[[input$selected_sample]]$content_curves)
     tmp <- read1_before_filtering()[[input$selected_sample]]$content_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_before_filtering_kmer <- plotly::renderPlotly({
-    req(read1_before_filtering()[[input$selected_sample]]$kmer_count )
+    req(read1_before_filtering()[[input$selected_sample]]$kmer_count)
     tmp <- read1_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 , 2)) %>%
+      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3)) %>%
       ggplot2::ggplot(aes(x = char_1st2nd, y = others, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
   })
-
+  
   # elements of read1 after filtering
   output$read1_after_filtering_main <- shiny::renderTable({
-    read1_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    read1_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
   output$read1_after_filtering_qualitycurves <- plotly::renderPlotly({
     req(read1_after_filtering()[[input$selected_sample]]$quality_curves)
     tmp <- read1_after_filtering()[[input$selected_sample]]$quality_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_after_filtering_contentcurves <- plotly::renderPlotly({
     req(read1_after_filtering()[[input$selected_sample]]$content_curves)
     tmp <- read1_after_filtering()[[input$selected_sample]]$content_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read1_after_filtering_kmer <- plotly::renderPlotly({
@@ -315,29 +349,39 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read1_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 , 2)) %>%
+      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3)) %>%
       ggplot2::ggplot(aes(x = char_1st2nd, y = others, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
   })
-
+  
   # elements of read2 before filtering
   output$read2_before_filtering_main <- shiny::renderTable({
-    read2_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    read2_before_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
   output$read2_before_filtering_qualitycurves <- plotly::renderPlotly({
     req(read2_before_filtering()[[input$selected_sample]]$quality_curves)
     tmp <- read2_before_filtering()[[input$selected_sample]]$quality_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_before_filtering_contentcurves <- plotly::renderPlotly({
     req(read2_before_filtering()[[input$selected_sample]]$content_curves)
     tmp <- read2_before_filtering()[[input$selected_sample]]$content_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) + ggplot2::geom_line()
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) + ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
   output$read2_before_filtering_kmer <- plotly::renderPlotly({
@@ -345,22 +389,28 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read2_before_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 , 2)) %>%
+      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3)) %>%
       ggplot2::ggplot(aes(x = char_1st2nd, y = others, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()
   })
-
+  
   # elements of read2 after filtering
   output$read2_after_filtering_main <- shiny::renderTable({
-    read2_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {sapply(col, convert_value_with_unit) }) %>% as.data.frame()
+    read2_after_filtering()[[input$selected_sample]]$main %>% lapply(., function(col) {
+      sapply(col, convert_value_with_unit)
+    }) %>% as.data.frame()
   })
   output$read2_after_filtering_qualitycurves <- plotly::renderPlotly({
     req(read2_after_filtering()[[input$selected_sample]]$quality_curves)
     tmp <- read2_after_filtering()[[input$selected_sample]]$quality_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) +
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) +
       ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
@@ -368,7 +418,11 @@ shiny::shinyServer(function(input, output, session) {
     req(read2_after_filtering()[[input$selected_sample]]$content_curves)
     tmp <- read2_after_filtering()[[input$selected_sample]]$content_curves  %>%
       tidyr::pivot_longer(cols = everything())
-    p <- ggplot2::ggplot(tmp, aes(x=1:length(name), y=value, color=name)) +
+    p <- ggplot2::ggplot(tmp, aes(
+      x = 1:length(name),
+      y = value,
+      color = name
+    )) +
       ggplot2::geom_line()
     p %>% plotly::ggplotly()
   })
@@ -377,8 +431,8 @@ shiny::shinyServer(function(input, output, session) {
     tmp <- read2_after_filtering()[[input$selected_sample]]$kmer_count
     p <- tmp %>%  as.data.frame() %>%
       tibble::rownames_to_column() %>%
-      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 ,2)) %>%
-      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3) ) %>%
+      dplyr::mutate(char_1st2nd = stringr::str_sub(.data$rowname, 1 , 2)) %>%
+      dplyr::mutate(others = stringr::str_sub(.data$rowname, start = 3)) %>%
       ggplot2::ggplot(aes(x = char_1st2nd, y = others, fill = V1)) +
       ggplot2::geom_tile()
     p %>% plotly::ggplotly()

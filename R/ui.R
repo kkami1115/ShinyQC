@@ -108,8 +108,10 @@ shiny::fluidPage(
     shiny::tabPanel("Settings",
                     shiny::selectInput("multi_strategy", "Choose a strategy:",
                                        list("sequential", "multisession")),
-                    shiny::selectInput("threads", "Thread(s) for fastp",
-                                       list(1,2,3,4,5,6,7,8))
+                    shiny::numericInput("threads", "Threads per Rfastp process", value = 4, min = 1),
+                    shiny::numericInput("max_total_threads", "Max Total Threads", 
+                                        value = tryCatch(parallel::detectCores() - 1, error = function(e) 4), 
+                                        min = 1)
                       )
   )
 )
