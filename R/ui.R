@@ -14,13 +14,28 @@ shiny::fluidPage(
 
     # Fastp execution tab
     shiny::tabPanel("Fastp execution",
-                   # Button for selecting fastq dir
-                   shinyFiles::shinyDirButton("fastq_dir", "Fastq Directory", "Select a directory containing fastq files"),
-                   shiny::verbatimTextOutput("fastq_dir"),
-                   shinyFiles::shinyDirButton("result_dir", "Result Directory", "Select a directory to save the results"),
-                   shiny::verbatimTextOutput("result_dir"),
-                   shiny::textInput("file_pattern", "File Pattern", value = "_[12]" ),
-                   shiny::actionButton("runButton", "Run Rfastp (Paired-end Mode)")
+                   shiny::radioButtons("run_mode", "Mode:",
+                                       choices = c("Run Rfastp", "Load JSON"),
+                                       inline = TRUE),
+                   
+                   # Conditional panel for running Rfastp
+                   shiny::conditionalPanel(
+                     condition = "input.run_mode == 'Run Rfastp'",
+                     shinyFiles::shinyDirButton("fastq_dir", "Fastq Directory", "Select a directory containing fastq files"),
+                     shiny::verbatimTextOutput("fastq_dir"),
+                     shinyFiles::shinyDirButton("result_dir", "Result Directory", "Select a directory to save the results"),
+                     shiny::verbatimTextOutput("result_dir"),
+                     shiny::textInput("file_pattern", "File Pattern", value = "_[12]" ),
+                     shiny::actionButton("runButton", "Run Rfastp (Paired-end Mode)")
+                   ),
+                   
+                   # Conditional panel for loading JSON
+                   shiny::conditionalPanel(
+                     condition = "input.run_mode == 'Load JSON'",
+                     shinyFiles::shinyDirButton("json_dir", "Select JSON Directory", "Select a directory containing fastp JSON files"),
+                     shiny::verbatimTextOutput("json_dir_path"),
+                     shiny::actionButton("load_json_btn", "Load Results")
+                   )
                    #,
                    # Area of logs
                    # uiOutput("dynamicSizeLogOutput")
